@@ -1,8 +1,10 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export function MegaMenu() {
   const [open, setOpen] = useState(false);
+  const [level, setLevel] = useState<'root' | 'leasing'>('root');
+  const firstFocusable = useRef<HTMLButtonElement | null>(null);
 
   // Lock scroll when the mobile menu is open
   useEffect(() => {
@@ -14,20 +16,21 @@ export function MegaMenu() {
     };
   }, [open]);
 
-  // Close on Escape
+  // Close on Escape and reset level when closing
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') {
+        if (level === 'leasing') setLevel('root');
+        else setOpen(false);
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [level]);
 
-  const link = (href: string, label: string) => (
-    <a key={href} href={href} className="hover:underline block py-1">
-      {label}
-    </a>
-  );
+  useEffect(() => {
+    if (open && firstFocusable.current) firstFocusable.current.focus();
+  }, [open]);
 
   const manufacturers = [
     'Ford',
@@ -46,6 +49,21 @@ export function MegaMenu() {
     'MAN'
   ];
 
+  const NavLink = (
+    { href, children, onClick }: { href: string; children: React.ReactNode; onClick?: () => void }
+  ) => (
+    <a
+      href={href}
+      className="block w-full text-left py-3"
+      onClick={() => {
+        setOpen(false);
+        onClick?.();
+      }}
+    >
+      {children}
+    </a>
+  );
+
   return (
     <div className="relative">
       {/* Mobile trigger */}
@@ -53,9 +71,13 @@ export function MegaMenu() {
         <button
           type="button"
           aria-expanded={open}
-          aria-controls="mobile-menu-panel"
+          aria-controls="mobile-menu-root"
           className="py-2 px-3 rounded border"
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => {
+            setLevel('root');
+            setOpen((v) => !v);
+          }}
+          ref={firstFocusable}
         >
           {open ? 'Close' : 'Menu'}
         </button>
@@ -66,30 +88,7 @@ export function MegaMenu() {
         <div className="group relative">
           <button className="py-2">Van Leasing</button>
           <div className="absolute left-0 top-full hidden group-hover:block bg-white border shadow p-4 w-[680px]">
-            <div className="grid grid-cols-3 gap-6 text-sm">
-              <div>
-                <p className="font-semibold mb-2">By Manufacturer</p>
-                {manufacturers.map((m) => link(`/vans/${encodeURIComponent(m)}`, m))}
-              </div>
-              <div>
-                <p className="font-semibold mb-2">By Type</p>
-                {link('/electric-vans', 'Electric & Hybrid')}
-                {link('/pickups', 'Pickups')}
-                {link('/vans?bodyType=Panel%20Van', 'Panel Van')}
-                {link('/vans?bodyType=DCIV', 'Crew Van (DCIV)')}
-                {link('/vans?bodyType=Tipper', 'Tipper')}
-                {link('/vans?bodyType=Dropside', 'Dropside')}
-                {link('/vans?bodyType=Refrigerated', 'Refrigerated')}
-              </div>
-              <div>
-                <p className="font-semibold mb-2">More</p>
-                {link('/vans?budget=under-250', 'Under £250')}
-                {link('/vans?budget=250-350', '£250–£350')}
-                {link('/vans?budget=350-plus', '£350+')}
-                {link('/van-leasing-explained', 'Leasing explained')}
-                {link('/van-finance', 'Finance options')}
-              </div>
-            </div>
+            <DesktopMega />
           </div>
         </div>
         <a href="/compare" className="py-2">Compare</a>
@@ -97,22 +96,54 @@ export function MegaMenu() {
         <a href="/contact" className="py-2">Contact</a>
       </div>
 
-      {/* Mobile panel */}
+      {/* Mobile drawers */}
       {open && (
-        <div className="md:hidden fixed inset-0 z-50">
+        <div className="md:hidden fixed inset-0 z-50" role="dialog" aria-modal="true">
+          {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/20"
+            className="absolute inset-0 bg-black/30"
             onClick={() => setOpen(false)}
             aria-hidden="true"
           />
+
+          {/* Root drawer */}
           <div
-            id="mobile-menu-panel"
-            className="absolute inset-x-0 top-16 bg-white border-t shadow-lg p-4 max-h-[calc(100vh-64px)] overflow-y-auto"
+            id="mobile-menu-root"
+            className={
+              'absolute right-0 top-0 h-full w-80 max-w-[90vw] bg-white shadow-xl border-l transition-transform duration-300 ' +
+              (level === 'root' ? 'translate-x-0' : 'translate-x-full')
+            }
           >
-            <nav className="text-sm">
+            <div className="p-4 border-b flex items-center justify-between">
+              <h2 className="font-semibold">Menu</h2>
+              <button className="text-sm underline" onClick={() => setOpen(false)}>Close</button>
+            </div>
+            <nav className="p-2">
+              <button className="w-full text-left py-3 font-medium" onClick={() => setLevel('leasing')}>Van Leasing</button>
+              <NavLink href="/compare">Compare</NavLink>
+              <NavLink href="/about">About</NavLink>
+              <NavLink href="/contact">Contact</NavLink>
+            </nav>
+          </div>
+
+          {/* Leasing drawer (second level) */}
+          <div
+            id="mobile-menu-leasing"
+            className={
+              'absolute right-0 top-0 h-full w-80 max-w-[90vw] bg-white shadow-xl border-l transition-transform duration-300 ' +
+              (level === 'leasing' ? 'translate-x-0' : 'translate-x-full')
+            }
+            aria-hidden={level !== 'leasing'}
+          >
+            <div className="p-4 border-b flex items-center justify-between">
+              <button className="text-sm underline" onClick={() => setLevel('root')}>Back</button>
+              <h2 className="font-semibold">Van Leasing</h2>
+              <button className="text-sm underline" onClick={() => setOpen(false)}>Close</button>
+            </div>
+            <nav className="p-4 text-sm">
               <div className="mb-4">
-                <p className="font-semibold mb-2">Van Leasing</p>
-                <div className="grid grid-cols-2 gap-2">
+                <p className="font-semibold mb-2">Makes</p>
+                <div className="grid grid-cols-2 gap-x-4">
                   {manufacturers.map((m) => (
                     <a
                       key={m}
@@ -128,7 +159,7 @@ export function MegaMenu() {
 
               <div className="mb-4">
                 <p className="font-semibold mb-2">By Type</p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-x-4">
                   <a href="/electric-vans" onClick={() => setOpen(false)}>Electric & Hybrid</a>
                   <a href="/pickups" onClick={() => setOpen(false)}>Pickups</a>
                   <a href="/vans?bodyType=Panel%20Van" onClick={() => setOpen(false)}>Panel Van</a>
@@ -139,9 +170,9 @@ export function MegaMenu() {
                 </div>
               </div>
 
-              <div className="mb-4">
+              <div>
                 <p className="font-semibold mb-2">More</p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-x-4">
                   <a href="/vans?budget=under-250" onClick={() => setOpen(false)}>Under £250</a>
                   <a href="/vans?budget=250-350" onClick={() => setOpen(false)}>£250–£350</a>
                   <a href="/vans?budget=350-plus" onClick={() => setOpen(false)}>£350+</a>
@@ -149,16 +180,60 @@ export function MegaMenu() {
                   <a href="/van-finance" onClick={() => setOpen(false)}>Finance options</a>
                 </div>
               </div>
-
-              <div className="border-t pt-3 grid grid-cols-2 gap-2">
-                <a href="/compare" onClick={() => setOpen(false)}>Compare</a>
-                <a href="/about" onClick={() => setOpen(false)}>About</a>
-                <a href="/contact" onClick={() => setOpen(false)}>Contact</a>
-              </div>
             </nav>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function DesktopMega() {
+  const link = (href: string, label: string) => (
+    <a key={href} href={href} className="hover:underline block py-1">
+      {label}
+    </a>
+  );
+  const manufacturers = [
+    'Ford',
+    'Vauxhall',
+    'Volkswagen',
+    'Mercedes-Benz',
+    'Renault',
+    'Peugeot',
+    'Citroën',
+    'Fiat',
+    'Toyota',
+    'Nissan',
+    'Maxus',
+    'IVECO',
+    'Isuzu',
+    'MAN'
+  ];
+  return (
+    <div className="grid grid-cols-3 gap-6 text-sm">
+      <div>
+        <p className="font-semibold mb-2">By Manufacturer</p>
+        {manufacturers.map((m) => link(`/vans/${encodeURIComponent(m)}`, m))}
+      </div>
+      <div>
+        <p className="font-semibold mb-2">By Type</p>
+        {link('/electric-vans', 'Electric & Hybrid')}
+        {link('/pickups', 'Pickups')}
+        {link('/vans?bodyType=Panel%20Van', 'Panel Van')}
+        {link('/vans?bodyType=DCIV', 'Crew Van (DCIV)')}
+        {link('/vans?bodyType=Tipper', 'Tipper')}
+        {link('/vans?bodyType=Dropside', 'Dropside')}
+        {link('/vans?bodyType=Refrigerated', 'Refrigerated')}
+      </div>
+      <div>
+        <p className="font-semibold mb-2">More</p>
+        {link('/vans?budget=under-250', 'Under £250')}
+        {link('/vans?budget=250-350', '£250–£350')}
+        {link('/vans?budget=350-plus', '£350+')}
+        {link('/van-leasing-explained', 'Leasing explained')}
+        {link('/van-finance', 'Finance options')}
+      </div>
     </div>
   );
 }
