@@ -6,9 +6,15 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 bg-white border-b">
       <div className="mx-auto max-w-6xl px-4 h-16 flex items-center gap-4">
-        <a href="/" className="flex items-center gap-3">
-          <Image src="/brand/e-van-leasing-logo.png" alt="E-Van Leasing" width={40} height={40} />
-          <span className="font-bold">E-Van Leasing</span>
+        <a href="/" className="flex items-center">
+          <Image
+            src="/brand/e-van-leasing-logo.png"
+            alt="E-Van Leasing"
+            width={140}
+            height={32}
+            priority
+          />
+          <span className="sr-only">E-Van Leasing</span>
         </a>
         <nav className="ml-auto hidden md:block">
           <MegaMenu />
