@@ -16,7 +16,7 @@ export function Header() {
           />
           <span className="sr-only">E-Van Leasing</span>
         </a>
-        <nav className="ml-auto hidden md:block">
+        <nav className="ml-auto">
           <MegaMenu />
         </nav>
         <a href="tel:07852789688" className="ml-4 text-sm font-medium">07852789688</a>
