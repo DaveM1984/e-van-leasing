@@ -49,5 +49,14 @@ export async function getOffers({
 
 export async function getOfferById({ make, model, derivative }: { make: string; model: string; derivative: string }) {
   const all = (await getOffers({ pageSize: 9999 })).items;
-  return all.find((o) => o.make === make && o.model === model && o.derivative === decodeURIComponent(derivative));
+  const norm = (s: string) => decodeURIComponent(String(s)).toLowerCase().replace(/\s+/g, ' ').trim();
+  const makeN = norm(make);
+  const modelN = norm(model);
+  const derivN = norm(derivative);
+
+  return all.find((o) =>
+    norm(o.make) === makeN &&
+    norm(o.model) === modelN &&
+    norm(o.derivative) === derivN
+  );
 }

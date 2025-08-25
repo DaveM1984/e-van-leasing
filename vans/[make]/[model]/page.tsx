@@ -12,7 +12,6 @@ export default async function ModelPage({ params }: { params: { make: string; mo
     <div className="mx-auto max-w-6xl px-4 py-6">
       <Breadcrumbs
         items={[
-          { name: 'Vans', href: '/vans' },
           { name: make, href: `/vans/${encodeURIComponent(make)}` },
           { name: model }
         ]}

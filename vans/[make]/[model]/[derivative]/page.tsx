@@ -19,9 +19,8 @@ export default async function PDP({
     <div className="mx-auto max-w-6xl px-4 py-6">
       <Breadcrumbs
         items={[
-          { name: 'Vans', href: '/vans' },
-          { name: offer.make, href: `/vans/${offer.make}` },
-          { name: offer.model, href: `/vans/${offer.make}/${offer.model}` },
+          { name: offer.make, href: `/vans/${encodeURIComponent(offer.make)}` },
+          { name: offer.model, href: `/vans/${encodeURIComponent(offer.make)}/${encodeURIComponent(offer.model)}` },
           { name: offer.derivative }
         ]}
       />
