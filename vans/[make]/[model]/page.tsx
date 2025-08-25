@@ -1,6 +1,7 @@
 import { getOffers } from '@/lib/repositories/offers';
 import { OfferGrid } from '@/components/OfferGrid';
 import { Breadcrumbs } from '@/components/Breadcrumbs';
+export const dynamic = 'force-dynamic';
 
 export default async function ModelPage({ params }: { params: { make: string; model: string } }) {
   const make = decodeURIComponent(params.make);

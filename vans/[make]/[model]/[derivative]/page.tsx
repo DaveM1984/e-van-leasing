@@ -5,15 +5,7 @@ import { FinanceCalculator } from '@/components/FinanceCalculator';
 import { StickyCTA } from '@/components/StickyCTA';
 import { CompareTray } from '@/components/CompareTray';
 import Enquiry from './parts/Enquiry';
-
-export async function generateStaticParams() {
-  const { items } = await getOffers({ limit: 20 });
-  return items.map((o) => ({
-    make: o.make,
-    model: o.model,
-    derivative: o.derivative
-  }));
-}
+export const dynamic = 'force-dynamic';
 
 export default async function PDP({
   params
