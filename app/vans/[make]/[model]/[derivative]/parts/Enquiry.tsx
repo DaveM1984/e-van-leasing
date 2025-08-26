@@ -46,19 +46,19 @@ export default function Enquiry({ offer }: { offer: any }) {
     >
       <div className="grid md:grid-cols-2 gap-3">
         <Field label="Full name" error={errors.name?.message}>
-          <input {...register('name', { required: 'Required' })} className="input" />
+          <input {...register('name', { required: 'Required' })} className="border rounded px-3 py-2 w-full text-base" />
         </Field>
         <Field label="Email" error={errors.email?.message}>
-          <input type="email" {...register('email', { required: 'Required' })} className="input" />
+          <input type="email" {...register('email', { required: 'Required' })} className="border rounded px-3 py-2 w-full text-base" />
         </Field>
         <Field label="Phone" error={errors.phone?.message}>
-          <input {...register('phone', { required: 'Required' })} className="input" />
+          <input {...register('phone', { required: 'Required' })} className="border rounded px-3 py-2 w-full text-base" />
         </Field>
         <Field label="Company (optional)">
-          <input {...register('company')} className="input" />
+          <input {...register('company')} className="border rounded px-3 py-2 w-full text-base" />
         </Field>
         <Field label="Customer type">
-          <select {...register('customerType')} className="input">
+          <select {...register('customerType')} className="border rounded px-3 py-2 w-full text-base">
             <option value="sole-trader">Sole trader</option>
             <option value="limited">Limited</option>
             <option value="partnership">Partnership</option>
@@ -66,27 +66,27 @@ export default function Enquiry({ offer }: { offer: any }) {
           </select>
         </Field>
         <Field label="VAT registered?">
-          <select {...register('vatRegistered')} className="input">
+          <select {...register('vatRegistered')} className="border rounded px-3 py-2 w-full text-base">
             <option value="true">Yes</option>
             <option value="false">No</option>
           </select>
         </Field>
         <Field label="Preferred term (months)">
-          <select {...register('preferredTermMonths')} className="input">
+          <select {...register('preferredTermMonths')} className="border rounded px-3 py-2 w-full text-base">
             {offer.terms.termMonths.map((t: number) => (
               <option key={t} value={t}>{t}</option>
             ))}
           </select>
         </Field>
         <Field label="Annual mileage">
-          <select {...register('preferredMileage')} className="input">
+          <select {...register('preferredMileage')} className="border rounded px-3 py-2 w-full text-base">
             {offer.terms.mileagesPerYear.map((m: number) => (
               <option key={m} value={m}>{m.toLocaleString()} miles</option>
             ))}
           </select>
         </Field>
         <Field label="Initial payment (x)">
-          <select {...register('initialPaymentMultiple')} className="input">
+          <select {...register('initialPaymentMultiple')} className="border rounded px-3 py-2 w-full text-base">
             {offer.terms.initialPaymentMultiples.map((x: number) => (
               <option key={x} value={x}>{x}x</option>
             ))}
@@ -94,7 +94,7 @@ export default function Enquiry({ offer }: { offer: any }) {
         </Field>
       </div>
       <Field label="Notes">
-        <textarea {...register('notes')} className="input" rows={3} />
+        <textarea {...register('notes')} className="border rounded px-3 py-2 w-full text-base" rows={3} />
       </Field>
       <label className="flex items-start gap-2 text-sm">
         <input type="checkbox" {...register('consent', { required: true })} />
@@ -108,9 +108,6 @@ export default function Enquiry({ offer }: { offer: any }) {
       <button disabled={isSubmitting} className="px-4 py-2 bg-primary text-white rounded">
         {isSubmitting ? 'Sending…' : 'Send enquiry'}
       </button>
-      <style jsx>{`
-        .input { @apply border rounded px-3 py-2 w-full; }
-      `}</style>
     </form>
   );
 }
