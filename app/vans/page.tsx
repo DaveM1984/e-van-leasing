@@ -34,17 +34,33 @@ export default async function VansPage({
 
 function SortSelect() {
   return (
-    <form action="/vans" className="ml-auto">
-      <label className="sr-only" htmlFor="sort">Sort</label>
-      <select id="sort" name="sort" className="border rounded p-2">
-        <option value="">Sort: Default</option>
-        <option value="price-asc">Price low → high</option>
-        <option value="price-desc">Price high → low</option>
-        <option value="delivery">Soonest delivery</option>
-        <option value="newest">Newest</option>
-      </select>
-      <button className="ml-2 px-3 py-2 rounded bg-primary text-white">Apply</button>
-    </form>
+    <>
+      <form id="sortForm" action="/vans" className="ml-auto">
+        <label className="sr-only" htmlFor="sort">Sort</label>
+        <select id="sort" name="sort" className="border rounded p-2">
+          <option value="">Sort: Default</option>
+          <option value="price-asc">Price low → high</option>
+          <option value="price-desc">Price high → low</option>
+          <option value="delivery">Soonest delivery</option>
+          <option value="newest">Newest</option>
+        </select>
+      </form>
+
+      {/* Auto-submit the form when the sort option changes */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
+            document.addEventListener('DOMContentLoaded', function () {
+              var sel = document.getElementById('sort');
+              var form = document.getElementById('sortForm');
+              if (sel && form) {
+                sel.addEventListener('change', function () { form.submit(); });
+              }
+            });
+          `
+        }}
+      />
+    </>
   );
 }
 
