@@ -52,7 +52,7 @@ export default async function PDP({
           <div className="mt-6 border rounded p-4">
             <FinanceCalculator offer={offer} />
           </div>
-          <div className="mt-6">
+          <div id="enquiry" className="mt-6 scroll-mt-20">
             <Enquiry offer={offer} />
           </div>
           <p className="mt-4 text-xs text-slate-500">
