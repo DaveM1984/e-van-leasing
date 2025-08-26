@@ -3,13 +3,16 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { enquirySchema } from '@/lib/schema';
 import { useState } from 'react';
+import { useFinanceStore } from '@/store/finance';
 
 export default function Enquiry({ offer }: { offer: any }) {
   const [ok, setOk] = useState(false);
+  const { term, mileage, initial } = useFinanceStore();
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting }
+    formState: { errors, isSubmitting },
+    setValue
   } = useForm<z.infer<typeof enquirySchema>>({
     defaultValues: {
       name: '',
@@ -18,14 +21,24 @@ export default function Enquiry({ offer }: { offer: any }) {
       company: '',
       customerType: 'limited',
       vatRegistered: true,
-      preferredTermMonths: 36,
-      preferredMileage: 10000,
-      initialPaymentMultiple: 9,
+      preferredTermMonths: term,
+      preferredMileage: mileage,
+      initialPaymentMultiple: initial,
       notes: '',
       consent: false,
       marketingOptIn: false
     }
   });
+
+  // Keep form in sync with FinanceCalculator selections
+  // so users don't have to re-enter the same values.
+  // Updates whenever the calculator values change.
+  React.useEffect(() => {
+    // use react-hook-form setValue from the hook above
+    setValue('preferredTermMonths', term);
+    setValue('preferredMileage', mileage);
+    setValue('initialPaymentMultiple', initial);
+  }, [term, mileage, initial, setValue]);
 
   return ok ? (
     <div className="p-4 border rounded bg-green-50">
@@ -44,6 +57,7 @@ export default function Enquiry({ offer }: { offer: any }) {
       })}
       className="grid gap-3"
     >
+      <h2 className="text-xl font-semibold">Request A Quote</h2>
       <div className="grid md:grid-cols-2 gap-3">
         <Field label="Full name" error={errors.name?.message}>
           <input {...register('name', { required: 'Required' })} className="border rounded px-3 py-2 w-full text-base" />
