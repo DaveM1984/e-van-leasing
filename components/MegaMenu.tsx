@@ -72,7 +72,7 @@ export function MegaMenu() {
           type="button"
           aria-expanded={open}
           aria-controls="mobile-menu-root"
-          className="py-2 px-3 rounded border"
+          className="h-10 inline-flex items-center px-3 rounded border"
           onClick={() => {
             setLevel('root');
             setOpen((v) => !v);
