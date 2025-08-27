@@ -5,7 +5,7 @@ export default function Page() {
       <header className="mb-8">
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Contact us</h1>
         <p className="mt-2 text-slate-700 max-w-2xl">
-          Speak to our UK team about van leasing, availability, and finance options. We’re happy to help.
+          Speak to our team about van leasing, availability, and finance options. We’re happy to help.
         </p>
       </header>
 
