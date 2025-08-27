@@ -2,7 +2,7 @@
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { enquirySchema } from '@/lib/schema';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useFinanceStore } from '@/store/finance';
 
 export default function Enquiry({ offer }: { offer: any }) {
@@ -33,7 +33,7 @@ export default function Enquiry({ offer }: { offer: any }) {
   // Keep form in sync with FinanceCalculator selections
   // so users don't have to re-enter the same values.
   // Updates whenever the calculator values change.
-  React.useEffect(() => {
+  useEffect(() => {
     // use react-hook-form setValue from the hook above
     setValue('preferredTermMonths', term);
     setValue('preferredMileage', mileage);
