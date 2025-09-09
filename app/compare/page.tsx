@@ -8,12 +8,27 @@ export default function ComparePage() {
   const [offers, setOffers] = useState<any[]>([]);
 
   useEffect(() => {
+    let aborted = false;
     (async () => {
+      // If nothing selected, clear table and skip fetch
+      if (ids.length === 0) {
+        setOffers([]);
+        return;
+      }
+
       const qs = ids.map((id) => `id=${encodeURIComponent(id)}`).join('&');
-      const res = await fetch(`/api/search?${qs}`);
+      const res = await fetch(`/api/search?${qs}`, { cache: 'no-store' });
       const data = await res.json();
-      setOffers(data.items);
+
+      if (aborted) return;
+      // Keep the same column order as the current selection
+      const byId = new Map<string, any>(data.items.map((o: any) => [o.id, o]));
+      const ordered = ids.map((id) => byId.get(id)).filter(Boolean);
+      setOffers(ordered);
     })();
+    return () => {
+      aborted = true;
+    };
   }, [ids]);
 
   return (
@@ -31,7 +46,14 @@ export default function ComparePage() {
                   <th key={o.id} className="p-2 text-left">
                     <div className="flex items-center justify-between">
                       <span>{o.make} {o.model}</span>
-                      <button className="text-sm underline" onClick={() => remove(o.id)}>Remove</button>
+                      <button
+                        type="button"
+                        className="text-sm underline"
+                        onClick={() => remove(o.id)}
+                        aria-label={`Remove ${o.make} ${o.model} from compare`}
+                      >
+                        Remove
+                      </button>
                     </div>
                     <div className="text-primary font-semibold">£{o.monthlyFromExVat.toFixed(2)}</div>
                   </th>
