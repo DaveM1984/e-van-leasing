@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { useCompareStore } from '@/store/compare';
 
 export function CompareTray({ offer }: { offer: any }) {
@@ -13,7 +14,7 @@ export function CompareTray({ offer }: { offer: any }) {
       >
         {has ? 'Remove from compare' : 'Add to compare'}
       </button>
-      <a href="/compare" className="underline text-primary">Go to compare ({ids.length})</a>
+      <Link href="/compare" className="underline text-primary">Go to compare ({ids.length})</Link>
     </div>
   );
 }
