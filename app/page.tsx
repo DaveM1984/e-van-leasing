@@ -46,9 +46,7 @@ export default async function HomePage() {
           <div>
             <h2 className="text-2xl font-semibold">How van finance works</h2>
             <p className="mt-2 text-slate-700">
-              Choose your term (36/48 months), set annual mileage, and your initial payment. Prices
-              shown are business contract hire ex-VAT. Subject to status. E-Van Leasing is a credit
-              broker, not a lender.
+              Pick your term (usually 36 or 48 months), annual mileage, and initial rental (1–12×). Most of our business deals are <strong>Finance Lease</strong> — VAT is paid on each rental and legal ownership doesn’t transfer at the end. <strong>Hire Purchase</strong> is also available if you want to own the van once all payments are made. Prices shown are ex‑VAT for business users. Subject to status. E‑Van Leasing is a credit broker, not a lender. <a href="/van-leasing-explained" className="underline text-primary">Learn more</a>.
             </p>
           </div>
           <FAQAccordion
