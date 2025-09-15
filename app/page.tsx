@@ -5,6 +5,8 @@ import { FAQAccordion } from '@/components/FAQAccordion';
 import { LogoCloud } from '@/components/LogoCloud';
 import { getOffers } from '@/lib/repositories/offers';
 
+export const dynamic = 'force-dynamic';
+
 export default async function HomePage() {
   const { items } = await getOffers({ page: 1, pageSize: 100 });
   const small = items.filter((o) => o.size === 'Small').slice(0, 4);
