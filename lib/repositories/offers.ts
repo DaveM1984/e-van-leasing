@@ -155,97 +155,163 @@ export async function fetchVehicleImagesJson(params: {
   Commercial?: 0 | 1 | boolean;
   Body?: string;
   Vanbody?: string;
-  Type?: 'jpeg' | 'webp';
+  Type?: 'JPEG' | 'WebP' | 'Jpeg' | 'Webp' | string;
   keyword1?: string;
   keyword2?: string;
   keyword3?: string;
 }): Promise<VehicleDetailsJson | null> {
   const token = await getImagesApiToken();
 
-  const payload: any = {
-    UserAuthTokenId: token,
-    Type: (params.Type || 'webp').toLowerCase(),
-  };
+  // Enable debug logging if DEBUG_IMAGES=1
+  const _debug = process.env.DEBUG_IMAGES === '1';
 
-  if (params.idscode) payload.idscode = params.idscode;
-  if (params.make) payload.make = params.make;
-  if (params.model) payload.model = params.model;
-  if (params.Year) payload.Year = params.Year;
-  if (params.Body) payload.Body = params.Body;
-  if (params.Vanbody) payload.Vanbody = params.Vanbody;
-  if (params.keyword1) payload.keyword1 = params.keyword1;
-  if (params.keyword2) payload.keyword2 = params.keyword2;
-  if (params.keyword3) payload.keyword3 = params.keyword3;
+  // Build querystring; service expects GET with these params.
+  const qs = new URLSearchParams();
+  qs.set('UserAuthTokenId', token);
+  // Per docs the service expects "Jpeg" or "WebP" casing
+  qs.set('Type', (params.Type ? params.Type : 'WebP'));
 
+  if (params.idscode) qs.set('idscode', String(params.idscode));
+  if (params.make) qs.set('make', String(params.make));
+  if (params.model) qs.set('model', String(params.model));
+  if (params.Year) qs.set('Year', String(params.Year));
   if (typeof params.Commercial !== 'undefined') {
-    payload.Commercial = params.Commercial === true ? 1 : params.Commercial ? 1 : 0;
+    const v = params.Commercial === true ? 1 : params.Commercial ? 1 : 0;
+    qs.set('Commercial', String(v));
   }
+  if (params.Body) qs.set('Body', String(params.Body));
+  if (params.Vanbody) qs.set('Vanbody', String(params.Vanbody));
+  if (params.keyword1) qs.set('keyword1', String(params.keyword1));
+  if (params.keyword2) qs.set('keyword2', String(params.keyword2));
+  if (params.keyword3) qs.set('keyword3', String(params.keyword3));
 
-  const res = await fetch(`${IMAGES_BASE}/VehicleImageSearch/Json`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
+  const url = `${IMAGES_BASE}/VehicleImageSearch/Json?${qs.toString()}`;
+  const res = await fetch(url, { method: 'GET' });
 
   if (!res.ok) {
+    if (_debug) {
+      try {
+        const safeUrl = url.replace(/(UserAuthTokenId=)[^&]+/, '$1[redacted]');
+        const bodyText = await res.text();
+        console.warn('[ImagesAPI] HTTP', res.status, safeUrl, 'body=', bodyText.slice(0, 500));
+      } catch {}
+    }
     if (res.status === 401) _cachedToken = null;
     return null;
   }
 
   const data: VehicleDetailsJson = await res.json();
-  if (data.ERRORMESSAGE) return null;
+  if (data.ERRORMESSAGE) {
+    if (_debug) {
+      try {
+        const safeUrl = url.replace(/(UserAuthTokenId=)[^&]+/, '$1[redacted]');
+        console.warn('[ImagesAPI] ERRORMESSAGE for', safeUrl, data.ERRORMESSAGE);
+      } catch {}
+    }
+    return null;
+  }
 
   return data;
+}
+function cleanDerivativeForKeywords(deriv?: string): string | undefined {
+  if (!deriv) return undefined;
+  // Remove bracketed notes e.g. "(Black)" "(Magnetic)"
+  let s = deriv.replace(/\([^)]*\)/g, ' ');
+  // Remove common colour words that don’t help matching
+  s = s.replace(/\b(black|white|magnetic|grey matter|grey|silver|blue|red|green|orange)\b/gi, ' ');
+  // Collapse spaces
+  s = s.replace(/\s+/g, ' ').trim();
+  return s || undefined;
 }
 
 /**
  * For a given offer, attempts to get best available image URLs from the API.
- * Adds IDS code and derivative/body/size keywords for tighter matches.
+ * Tries multiple strategies (WebP/Jpeg, with/without keywords, Year hints) before giving up.
  * Returns an array of URLs in preferred order (hero first).
  */
 export async function getVehicleImagesForOffer(offer: Offer): Promise<string[]> {
-  try {
-    const isCommercial = true; // our inventory is vans/pickups
+  const isCommercial = true; // our inventory is vans/pickups
+  const _debug = process.env.DEBUG_IMAGES === '1';
 
-    // Prefer richer hints to the API for tighter matches
-    const idscode = (offer as any).idscode as string | undefined;
-    const keyword1 = offer.derivative || undefined;
-    const keyword2 = (offer as any).bodyType || undefined;
-    const keyword3 = (offer as any).size || undefined;
+  // Prefer richer hints to the API for tighter matches
+  const idscode = (offer as any).idscode as string | undefined;
+  const keyword1Full = cleanDerivativeForKeywords(offer.derivative);
+  const keyword2 = (offer as any).bodyType || undefined;
+  const keyword3 = (offer as any).size || undefined;
+  const Body = (offer as any).bodyType || undefined;
 
-    const data = await fetchVehicleImagesJson({
-      idscode,
-      make: offer.make,
-      model: offer.model,
-      Commercial: isCommercial ? 1 : 0,
-      Type: 'webp',
-      keyword1,
-      keyword2,
-      keyword3
-    });
+  // Build attempts in decreasing specificity
+  const attempts: Array<Parameters<typeof fetchVehicleImagesJson>[0]> = [
+    // 1) WebP with all hints
+    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'WebP', Body, keyword1: keyword1Full, keyword2, keyword3 },
+    // 2) JPEG with all hints
+    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'Jpeg', Body, keyword1: keyword1Full, keyword2, keyword3 },
+    // 3) WebP without detailed keywords (just make/model/body)
+    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'WebP', Body },
+    // 4) JPEG without detailed keywords
+    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'Jpeg', Body },
+    // 5) WebP + Year 2025 (new shape bias)
+    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'WebP', Body, Year: 2025 },
+    // 6) JPEG + Year 2025
+    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'Jpeg', Body, Year: 2025 },
+    // 7) WebP + Year 2024
+    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'WebP', Body, Year: 2024 },
+    // 8) JPEG + Year 2024
+    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'Jpeg', Body, Year: 2024 }
+  ];
 
-    const v = data?.VEHICLE_DETAILS;
-    if (!v) return [];
+  for (let i = 0; i < attempts.length; i++) {
+    try {
+      const a = attempts[i];
+      const data = await fetchVehicleImagesJson(a);
+      const v = data?.VEHICLE_DETAILS;
+      if (!v) {
+        if (_debug) {
+          try {
+            const safe = { ...a };
+            if ('idscode' in safe) safe.idscode = (safe.idscode ? '[present]' : undefined) as any;
+            console.info('[ImagesAPI] attempt', i + 1, 'no VEHICLE_DETAILS', JSON.stringify(safe));
+          } catch {}
+        }
+        continue;
+      }
 
-    const ordered = [
-      v.IMAGE_URL,
-      v.DETAIL_IMAGE_URL,
-      v.BACK_IMAGE_URL,
-      v.INSIDE_IMAGE_URL,
-      v.SIDE_IMAGE_URL
-    ].filter((u): u is string => !!u);
+      const ordered = [
+        v.IMAGE_URL,
+        v.DETAIL_IMAGE_URL,
+        v.BACK_IMAGE_URL,
+        v.INSIDE_IMAGE_URL,
+        v.SIDE_IMAGE_URL
+      ].filter((u): u is string => !!u);
 
-    const seen = new Set<string>();
-    const urls = ordered.filter((u) => {
-      if (seen.has(u)) return false;
-      seen.add(u);
-      return true;
-    });
+      if (ordered.length) {
+        const seen = new Set<string>();
+        const urls = ordered.filter((u) => {
+          if (seen.has(u)) return false;
+          seen.add(u);
+          return true;
+        });
 
-    return urls;
-  } catch {
-    return [];
+        if (_debug) {
+          try {
+            console.info('[ImagesAPI] attempt', i + 1, 'SUCCESS urls=', urls.slice(0, 3));
+          } catch {}
+        }
+
+        return urls;
+      }
+    } catch (e) {
+      if (_debug) {
+        try {
+          console.warn('[ImagesAPI] attempt', i + 1, 'threw', (e as Error)?.message);
+        } catch {}
+      }
+      // keep trying fallbacks
+    }
   }
+
+  // Nothing worked
+  return [];
 }
 
 /**
