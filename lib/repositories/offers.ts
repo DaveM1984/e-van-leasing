@@ -169,8 +169,9 @@ export async function fetchVehicleImagesJson(params: {
   const qs = new URLSearchParams();
   qs.set('UserAuthTokenId', token);
   // Per docs the service expects "Jpeg" or "WebP" casing
-  const type = String(params.Type || 'WEBP').toUpperCase();
-  qs.set('Type', type === 'JPG' ? 'JPEG' : type);
+  const typeIn = String(params.Type || 'WebP');
+  const type = /jpg/i.test(typeIn) ? 'Jpeg' : /webp/i.test(typeIn) ? 'WebP' : typeIn;
+  qs.set('Type', type);
 
   if (params.idscode) qs.set('idscode', String(params.idscode));
   if (params.make) qs.set('make', String(params.make));
@@ -181,8 +182,17 @@ export async function fetchVehicleImagesJson(params: {
     qs.set('Commercial', String(v));
   }
   const vanbody = params.Vanbody || params.Body;
-  if (vanbody) qs.set('Vanbody', String(vanbody));
-  if (params.keyword1) qs.set('keyword1', String(params.keyword1));
+  if (vanbody) {
+    qs.set('Vanbody', String(vanbody));
+    qs.append('VanBody', String(vanbody)); // alt casing
+    qs.append('Body', String(vanbody));    // alias
+  }
+  // Some docs show `keyword` (no index) as the primary
+  if (params.keyword1) {
+    const v = String(params.keyword1);
+    qs.set('keyword1', v);
+    qs.append('keyword', v);
+  }
   if (params.keyword2) qs.set('keyword2', String(params.keyword2));
   if (params.keyword3) qs.set('keyword3', String(params.keyword3));
 
@@ -231,6 +241,7 @@ function cleanDerivativeForKeywords(deriv?: string): string | undefined {
  * Returns an array of URLs in preferred order (hero first).
  */
 export async function getVehicleImagesForOffer(offer: Offer): Promise<string[]> {
+  const makeApi = String(offer.make || '').replace(/-/g, ' ');
   const _debug = process.env.DEBUG_IMAGES === '1';
 
   // Prefer richer hints to the API for tighter matches
@@ -249,24 +260,24 @@ export async function getVehicleImagesForOffer(offer: Offer): Promise<string[]> 
     ] : []),
   
     // 1) WEBP with all hints
-    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'WEBP', Body, keyword1: keyword1Full, keyword2, keyword3 },
+    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'WEBP', Body, keyword1: keyword1Full, keyword2, keyword3 },
     // 2) JPEG with all hints
-    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'JPEG', Body, keyword1: keyword1Full, keyword2, keyword3 },
+    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'JPEG', Body, keyword1: keyword1Full, keyword2, keyword3 },
   
     // 3) WEBP without detailed keywords (just make/model/body)
-    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'WEBP', Body },
+    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'WEBP', Body },
     // 4) JPEG without detailed keywords
-    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'JPEG', Body },
+    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'JPEG', Body },
   
     // 3a/4a) make+model only
-    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'WEBP' },
-    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'JPEG' },
+    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'WEBP' },
+    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'JPEG' },
   
     // 5/6/7/8) Year hints
-    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'WEBP', Body, Year: 2025 },
-    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'JPEG', Body, Year: 2025 },
-    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'WEBP', Body, Year: 2024 },
-    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'JPEG', Body, Year: 2024 }
+    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'WEBP', Body, Year: 2025 },
+    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'JPEG', Body, Year: 2025 },
+    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'WEBP', Body, Year: 2024 },
+    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'JPEG', Body, Year: 2024 }
   ];
 
   for (let i = 0; i < attempts.length; i++) {
