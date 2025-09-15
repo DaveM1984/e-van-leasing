@@ -217,6 +217,7 @@ export async function fetchVehicleImagesJson(params: {
       try {
         const safeUrl = url.replace(/(UserAuthTokenId=)[^&]+/, '$1[redacted]');
         console.warn('[ImagesAPI] ERRORMESSAGE for', safeUrl, data.ERRORMESSAGE);
+        console.warn('[ImagesAPI] RAW JSON', JSON.stringify(data).slice(0, 1000));
       } catch {}
     }
     return null;
