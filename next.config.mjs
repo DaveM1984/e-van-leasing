@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: [],
+    domains: ['images-vehiclevalidate.azurewebsites.net'],
     unoptimized: true
   },
   eslint: {

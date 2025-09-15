@@ -1,6 +1,8 @@
 import Image from 'next/image';
+import { getHeroImageForOffer } from '@/lib/repositories/offers';
 
-export function DealCard({ offer }: { offer: any }) {
+export async function DealCard({ offer }: { offer: any }) {
+  const hero = await getHeroImageForOffer(offer);
   return (
     <a
       href={`/vans/${encodeURIComponent(offer.make)}/${encodeURIComponent(offer.model)}/${encodeURIComponent(offer.derivative)}`}
@@ -11,7 +13,7 @@ export function DealCard({ offer }: { offer: any }) {
           <span className="absolute left-2 top-2 bg-primary text-white text-xs px-2 py-1 rounded">Hot</span>
         )}
         <Image
-          src={offer.images[0] || '/vans/placeholder.jpg'}
+          src={hero}
           alt={`${offer.make} ${offer.model}`}
           fill
           sizes="(max-width:768px) 100vw, 33vw"
