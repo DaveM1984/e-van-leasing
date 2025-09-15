@@ -16,7 +16,7 @@ export default async function PDP({
   if (!offer) return <div className="mx-auto max-w-6xl p-6">Offer not found.</div>;
 
   const remoteImages = await getVehicleImagesForOffer(offer);
-  const heroImage = remoteImages[0] || offer.images[0] || '/vans/placeholder.jpg';
+  const heroImage = remoteImages[0] || offer.images[0] || '/brand/e-van-leasing-logo.png';
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">

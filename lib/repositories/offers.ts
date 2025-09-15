@@ -261,7 +261,7 @@ export async function getHeroImageForOffer(offer: Offer): Promise<string> {
   }
 
   const remote = await getVehicleImagesForOffer(offer);
-  const hero = remote[0] || offer.images?.[0] || '/vans/placeholder.jpg';
+  const hero = remote[0] || offer.images?.[0] || '/brand/e-van-leasing-logo.png';
 
   _heroImageCache.set(key, { url: hero, expiresAt: now + HERO_TTL_MS });
   return hero;
