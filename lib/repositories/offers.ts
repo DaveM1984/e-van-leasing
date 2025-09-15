@@ -169,7 +169,8 @@ export async function fetchVehicleImagesJson(params: {
   const qs = new URLSearchParams();
   qs.set('UserAuthTokenId', token);
   // Per docs the service expects "Jpeg" or "WebP" casing
-  qs.set('Type', (params.Type ? params.Type : 'WebP'));
+  const type = String(params.Type || 'WEBP').toUpperCase();
+  qs.set('Type', type === 'JPG' ? 'JPEG' : type);
 
   if (params.idscode) qs.set('idscode', String(params.idscode));
   if (params.make) qs.set('make', String(params.make));
@@ -179,14 +180,14 @@ export async function fetchVehicleImagesJson(params: {
     const v = params.Commercial === true ? 1 : params.Commercial ? 1 : 0;
     qs.set('Commercial', String(v));
   }
-  if (params.Body) qs.set('Body', String(params.Body));
-  if (params.Vanbody) qs.set('Vanbody', String(params.Vanbody));
+  const vanbody = params.Vanbody || params.Body;
+  if (vanbody) qs.set('Vanbody', String(vanbody));
   if (params.keyword1) qs.set('keyword1', String(params.keyword1));
   if (params.keyword2) qs.set('keyword2', String(params.keyword2));
   if (params.keyword3) qs.set('keyword3', String(params.keyword3));
 
   const url = `${IMAGES_BASE}/VehicleImageSearch/Json?${qs.toString()}`;
-  const res = await fetch(url, { method: 'GET' });
+  const res = await fetch(url, { method: 'GET', headers: { Accept: 'application/json' } });
 
   if (!res.ok) {
     if (_debug) {
@@ -230,7 +231,6 @@ function cleanDerivativeForKeywords(deriv?: string): string | undefined {
  * Returns an array of URLs in preferred order (hero first).
  */
 export async function getVehicleImagesForOffer(offer: Offer): Promise<string[]> {
-  const isCommercial = true; // our inventory is vans/pickups
   const _debug = process.env.DEBUG_IMAGES === '1';
 
   // Prefer richer hints to the API for tighter matches
@@ -242,22 +242,31 @@ export async function getVehicleImagesForOffer(offer: Offer): Promise<string[]> 
 
   // Build attempts in decreasing specificity
   const attempts: Array<Parameters<typeof fetchVehicleImagesJson>[0]> = [
-    // 1) WebP with all hints
-    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'WebP', Body, keyword1: keyword1Full, keyword2, keyword3 },
+    // 0) If we have IDS code, try that alone first (fast path)
+    ...(idscode ? [
+      { idscode, Type: 'WEBP' },
+      { idscode, Type: 'JPEG' }
+    ] : []),
+  
+    // 1) WEBP with all hints
+    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'WEBP', Body, keyword1: keyword1Full, keyword2, keyword3 },
     // 2) JPEG with all hints
-    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'Jpeg', Body, keyword1: keyword1Full, keyword2, keyword3 },
-    // 3) WebP without detailed keywords (just make/model/body)
-    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'WebP', Body },
+    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'JPEG', Body, keyword1: keyword1Full, keyword2, keyword3 },
+  
+    // 3) WEBP without detailed keywords (just make/model/body)
+    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'WEBP', Body },
     // 4) JPEG without detailed keywords
-    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'Jpeg', Body },
-    // 5) WebP + Year 2025 (new shape bias)
-    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'WebP', Body, Year: 2025 },
-    // 6) JPEG + Year 2025
-    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'Jpeg', Body, Year: 2025 },
-    // 7) WebP + Year 2024
-    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'WebP', Body, Year: 2024 },
-    // 8) JPEG + Year 2024
-    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'Jpeg', Body, Year: 2024 }
+    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'JPEG', Body },
+  
+    // 3a/4a) make+model only
+    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'WEBP' },
+    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'JPEG' },
+  
+    // 5/6/7/8) Year hints
+    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'WEBP', Body, Year: 2025 },
+    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'JPEG', Body, Year: 2025 },
+    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'WEBP', Body, Year: 2024 },
+    { idscode, make: offer.make, model: offer.model, Commercial: 1, Type: 'JPEG', Body, Year: 2024 }
   ];
 
   for (let i = 0; i < attempts.length; i++) {
