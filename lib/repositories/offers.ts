@@ -167,8 +167,8 @@ export async function fetchVehicleImagesJson(params: {
   const _debug = process.env.DEBUG_IMAGES === '1';
 
   // Normalise image type to the lowercase values used in the doc examples
-  const typeIn = String(params.Type || 'webp');
-  const type = /jpe?g/i.test(typeIn) ? 'jpeg' : 'webp';
+  const typeIn = String(params.Type || 'WebP');
+  const type = /jpe?g/i.test(typeIn) ? 'Jpeg' : 'WebP';
 
   // Build URL with query parameters (server expects GET)
   const url = new URL(`${IMAGES_BASE}/VehicleImageSearch/Json`);
@@ -189,8 +189,8 @@ export async function fetchVehicleImagesJson(params: {
   }
 
   // Per docs: both are accepted; keep Vanbody preferred for vans
-  put('Body', params.Body);
-  put('Vanbody', params.Vanbody || params.Body);
+  const bodyParam = params.Vanbody || params.Body;
+  if (bodyParam) put('VanBody', bodyParam);
 
   put('Fuel', params.Fuel);
   if (typeof params.Doors !== 'undefined') put('Doors', params.Doors);
@@ -209,7 +209,40 @@ export async function fetchVehicleImagesJson(params: {
         console.warn('[ImagesAPI] HTTP', res.status, 'url=', safeUrl);
       } catch {}
     }
-    if (res.status === 401) _cachedToken = null; // force re-auth on next call
+  
+    // Token might be expired/invalid: re-auth once and retry
+    if (res.status === 401) {
+      try {
+        _cachedToken = null;
+        const fresh = await getImagesApiToken();
+        url.searchParams.set('UserAuthTokenId', fresh);
+        const res2 = await fetch(url.toString(), { method: 'GET', headers: { Accept: 'application/json' } });
+        if (!res2.ok) {
+          if (_debug) {
+            try {
+              const safeUrl2 = url.toString().replace(/(UserAuthTokenId=)[^&]+/, '$1[redacted]');
+              console.warn('[ImagesAPI] HTTP', res2.status, '(after re-auth) url=', safeUrl2);
+            } catch {}
+          }
+          return null;
+        }
+        const data2: VehicleDetailsJson = await res2.json().catch(() => ({} as VehicleDetailsJson));
+        if (data2.ERRORMESSAGE) {
+          if (_debug) {
+            try {
+              const safeUrl2 = url.toString().replace(/(UserAuthTokenId=)[^&]+/, '$1[redacted]');
+              console.warn('[ImagesAPI] ERRORMESSAGE for', safeUrl2, data2.ERRORMESSAGE);
+              console.warn('[ImagesAPI] RAW JSON', JSON.stringify(data2).slice(0, 1000));
+            } catch {}
+          }
+          return null;
+        }
+        return data2;
+      } catch {
+        return null;
+      }
+    }
+  
     return null;
   }
 
@@ -287,10 +320,14 @@ export async function getVehicleImagesForOffer(offer: Offer): Promise<string[]> 
           try {
             const preview = new URL(`${IMAGES_BASE}/VehicleImageSearch/Json`);
             const qp: any = { ...a, UserAuthTokenId: '[redacted]' };
-            Object.keys(qp).forEach((k) => {
-              const v = (qp as any)[k];
-              if (typeof v !== 'undefined' && v !== null && v !== '') preview.searchParams.set(k, String(v));
-            });
+            const normalise = (k: string, v: unknown) => {
+              if (v == null || v === '') return;
+              if (k === 'Commercial') v = v === true ? 1 : v ? 1 : 0;
+              if (k === 'Type') v = /jpe?g/i.test(String(v)) ? 'Jpeg' : 'WebP';
+              if (k === 'Vanbody' || k === 'Body') k = 'VanBody';
+              preview.searchParams.set(k, String(v));
+            };
+            Object.keys(qp).forEach((k) => normalise(k, (qp as any)[k]));
             console.info('[ImagesAPI] attempt', i + 1, 'no VEHICLE_DETAILS', preview.toString());
           } catch {}
         }
