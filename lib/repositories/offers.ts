@@ -229,40 +229,6 @@ export async function fetchVehicleImagesJson(params: {
   return data;
 }
 
-// Clean an offer derivative into a concise keyword (e.g., "Limited", "Leader", "Trend")
-// Not currently used in API calls (keywords can trigger WAF 403s), but kept for potential tuning.
-function cleanDerivativeForKeywords(deriv?: string): string | undefined {
-  if (!deriv) return undefined;
-  let s = deriv;
-
-  // Remove bracketed notes e.g. "(Black)" "(Magnetic)"
-  s = s.replace(/\([^)]*\)/g, ' ');
-
-  // Remove colours
-  s = s.replace(/\b(black|white|magnetic|grey matter|grey|silver|blue|red|green|orange)\b/gi, ' ');
-
-  // Remove wheelbase/roof and power figures
-  s = s.replace(/\bL[0-3]\b/gi, ' ');
-  s = s.replace(/\bH[0-3]\b/gi, ' ');
-  s = s.replace(/\b\d{2,3}\s?ps\b/gi, ' ');
-
-  // Remove transmission markers
-  s = s.replace(/\b(Auto(matic)?|Manual)\b/gi, ' ');
-
-  // Drop leading numeric series like "280", "320"
-  s = s.replace(/^\s*\d{3}\b/, ' ');
-
-  // Normalize whitespace
-  s = s.replace(/\s+/g, ' ').trim();
-
-  // Prefer recognisable trim names
-  const parts = s.split(' ').filter(Boolean);
-  const trims = ['Limited', 'Leader', 'Trend', 'Tekna', 'Premium', 'EcoBlue'];
-  const hit = parts.find((p: string) => trims.includes(p));
-  if (hit) return hit;
-
-  return parts[0] || undefined;
-}
 
 /**
  * For a given offer, attempts to get best available image URLs from the API.
