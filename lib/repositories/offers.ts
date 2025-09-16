@@ -184,15 +184,11 @@ export async function fetchVehicleImagesJson(params: {
   }
   const vanBody = params.Vanbody || params.Body;
   if (vanBody) {
-    // The API is picky about names; standardise on `VanBody`
-    qs.set('VanBody', String(vanBody));
+    // Use the exact casing that avoids 403s in production: "Vanbody"
+    qs.set('Vanbody', String(vanBody));
   }
-  // Some docs show `keyword` (no index) as the primary
-  if (params.keyword1) {
-    const v = String(params.keyword1);
-    // Use only the primary `keyword` to avoid SYSTEM ERROR responses
-    qs.set('keyword', v);
-  }
+  // NOTE: We intentionally do not send any `keyword*` params because the
+  // upstream sometimes responds 403 when arbitrary search terms are present.
 
   const url = `${IMAGES_BASE}/VehicleImageSearch/Json?${qs.toString()}`;
   const res = await fetch(url, { method: 'GET', headers: { Accept: 'application/json' } });
@@ -270,35 +266,39 @@ export async function getVehicleImagesForOffer(offer: Offer): Promise<string[]> 
   const keyword1Full = cleanDerivativeForKeywords(offer.derivative);
   const keyword2 = (offer as any).bodyType || undefined;
   const keyword3 = (offer as any).size || undefined;
-  const Body = (offer as any).bodyType || undefined;
+  const Body: string | undefined = typeof (offer as any).bodyType === 'string' ? (offer as any).bodyType : undefined;
 
-  // Build attempts in decreasing specificity
+  // Build attempts in order: IDS code, plain make+model, then Vanbody/body/year hints, no keywords
   const attempts: Array<Parameters<typeof fetchVehicleImagesJson>[0]> = [
     // 0) If we have IDS code, try that alone first (fast path)
-    ...(idscode ? [
-      { idscode, Type: 'WebP' },
-      { idscode, Type: 'Jpeg' }
-    ] : []),
-  
-    // 1) WebP with tight hints (single `keyword` + `VanBody`)
-    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'WebP', Vanbody: Body, keyword1: keyword1Full },
-    // 2) Jpeg with the same hints
-    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'Jpeg', Vanbody: Body, keyword1: keyword1Full },
-  
-    // 3) WebP with make/model/body only
-    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'WebP', Vanbody: Body },
-    // 4) Jpeg with make/model/body only
-    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'Jpeg', Vanbody: Body },
-  
-    // 5/6) Plain make+model (what is currently succeeding)
-    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'WebP' },
-    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'Jpeg' },
-  
-    // 7–10) Year hints last
-    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'WebP', Vanbody: Body, Year: 2025 },
-    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'Jpeg', Vanbody: Body, Year: 2025 },
-    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'WebP', Vanbody: Body, Year: 2024 },
-    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'Jpeg', Vanbody: Body, Year: 2024 }
+    ...(idscode
+      ? [
+          { idscode, Type: 'WebP' },
+          { idscode, Type: 'Jpeg' }
+        ]
+      : []),
+
+    // 1/2) Plain make+model (these are known to succeed consistently)
+    { idscode, make: makeApi, model: offer.model, Commercial: true, Type: 'WebP' },
+    { idscode, make: makeApi, model: offer.model, Commercial: true, Type: 'Jpeg' },
+
+    // 3/4) Add body hint only (no keywords)
+    ...(Body
+      ? [
+          { idscode, make: makeApi, model: offer.model, Commercial: true, Type: 'WebP', Vanbody: Body as string },
+          { idscode, make: makeApi, model: offer.model, Commercial: true, Type: 'Jpeg', Vanbody: Body as string }
+        ]
+      : []),
+
+    // 5–8) Year hints (kept last)
+    ...(Body
+      ? [
+          { idscode, make: makeApi, model: offer.model, Commercial: true, Type: 'WebP', Vanbody: Body as string, Year: 2025 },
+          { idscode, make: makeApi, model: offer.model, Commercial: true, Type: 'Jpeg', Vanbody: Body as string, Year: 2025 },
+          { idscode, make: makeApi, model: offer.model, Commercial: true, Type: 'WebP', Vanbody: Body as string, Year: 2024 },
+          { idscode, make: makeApi, model: offer.model, Commercial: true, Type: 'Jpeg', Vanbody: Body as string, Year: 2024 }
+        ]
+      : [])
   ];
 
   for (let i = 0; i < attempts.length; i++) {
