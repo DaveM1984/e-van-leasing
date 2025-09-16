@@ -170,7 +170,8 @@ export async function fetchVehicleImagesJson(params: {
   qs.set('UserAuthTokenId', token);
   // Per docs the service expects "Jpeg" or "WebP" casing
   const typeIn = String(params.Type || 'WebP');
-  const type = /jpg/i.test(typeIn) ? 'Jpeg' : /webp/i.test(typeIn) ? 'WebP' : typeIn;
+  // accept jpg/jpeg and normalize to the casing the API expects
+  const type = /jpe?g/i.test(typeIn) ? 'Jpeg' : /webp/i.test(typeIn) ? 'WebP' : typeIn;
   qs.set('Type', type);
 
   if (params.idscode) qs.set('idscode', String(params.idscode));
@@ -181,20 +182,17 @@ export async function fetchVehicleImagesJson(params: {
     const v = params.Commercial === true ? 1 : params.Commercial ? 1 : 0;
     qs.set('Commercial', String(v));
   }
-  const vanbody = params.Vanbody || params.Body;
-  if (vanbody) {
-    qs.set('Vanbody', String(vanbody));
-    qs.append('VanBody', String(vanbody)); // alt casing
-    qs.append('Body', String(vanbody));    // alias
+  const vanBody = params.Vanbody || params.Body;
+  if (vanBody) {
+    // The API is picky about names; standardise on `VanBody`
+    qs.set('VanBody', String(vanBody));
   }
   // Some docs show `keyword` (no index) as the primary
   if (params.keyword1) {
     const v = String(params.keyword1);
-    qs.set('keyword1', v);
-    qs.append('keyword', v);
+    // Use only the primary `keyword` to avoid SYSTEM ERROR responses
+    qs.set('keyword', v);
   }
-  if (params.keyword2) qs.set('keyword2', String(params.keyword2));
-  if (params.keyword3) qs.set('keyword3', String(params.keyword3));
 
   const url = `${IMAGES_BASE}/VehicleImageSearch/Json?${qs.toString()}`;
   const res = await fetch(url, { method: 'GET', headers: { Accept: 'application/json' } });
@@ -227,13 +225,35 @@ export async function fetchVehicleImagesJson(params: {
 }
 function cleanDerivativeForKeywords(deriv?: string): string | undefined {
   if (!deriv) return undefined;
+  let s = deriv;
+
   // Remove bracketed notes e.g. "(Black)" "(Magnetic)"
-  let s = deriv.replace(/\([^)]*\)/g, ' ');
-  // Remove common colour words that don’t help matching
+  s = s.replace(/\([^)]*\)/g, ' ');
+
+  // Remove colours
   s = s.replace(/\b(black|white|magnetic|grey matter|grey|silver|blue|red|green|orange)\b/gi, ' ');
-  // Collapse spaces
+
+  // Remove wheelbase/roof and power figures
+  s = s.replace(/\bL[0-3]\b/gi, ' ');
+  s = s.replace(/\bH[0-3]\b/gi, ' ');
+  s = s.replace(/\b\d{2,3}\s?ps\b/gi, ' ');
+
+  // Remove transmission markers
+  s = s.replace(/\b(Auto(matic)?|Manual)\b/gi, ' ');
+
+  // Drop leading numeric series like "280", "320"
+  s = s.replace(/^\s*\d{3}\b/, ' ');
+
+  // Normalize whitespace
   s = s.replace(/\s+/g, ' ').trim();
-  return s || undefined;
+
+  // Prefer recognisable trim names
+  const parts = s.split(' ').filter(Boolean);
+  const trims = ['Limited', 'Leader', 'Trend', 'Tekna', 'Premium', 'EcoBlue'];
+  const hit = parts.find((p) => trims.includes(p));
+  if (hit) return hit;
+
+  return parts[0] || undefined;
 }
 
 /**
@@ -256,29 +276,29 @@ export async function getVehicleImagesForOffer(offer: Offer): Promise<string[]> 
   const attempts: Array<Parameters<typeof fetchVehicleImagesJson>[0]> = [
     // 0) If we have IDS code, try that alone first (fast path)
     ...(idscode ? [
-      { idscode, Type: 'WEBP' },
-      { idscode, Type: 'JPEG' }
+      { idscode, Type: 'WebP' },
+      { idscode, Type: 'Jpeg' }
     ] : []),
   
-    // 1) WEBP with all hints
-    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'WEBP', Body, keyword1: keyword1Full, keyword2, keyword3 },
-    // 2) JPEG with all hints
-    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'JPEG', Body, keyword1: keyword1Full, keyword2, keyword3 },
+    // 1) WebP with tight hints (single `keyword` + `VanBody`)
+    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'WebP', Vanbody: Body, keyword1: keyword1Full },
+    // 2) Jpeg with the same hints
+    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'Jpeg', Vanbody: Body, keyword1: keyword1Full },
   
-    // 3) WEBP without detailed keywords (just make/model/body)
-    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'WEBP', Body },
-    // 4) JPEG without detailed keywords
-    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'JPEG', Body },
+    // 3) WebP with make/model/body only
+    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'WebP', Vanbody: Body },
+    // 4) Jpeg with make/model/body only
+    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'Jpeg', Vanbody: Body },
   
-    // 3a/4a) make+model only
-    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'WEBP' },
-    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'JPEG' },
+    // 5/6) Plain make+model (what is currently succeeding)
+    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'WebP' },
+    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'Jpeg' },
   
-    // 5/6/7/8) Year hints
-    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'WEBP', Body, Year: 2025 },
-    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'JPEG', Body, Year: 2025 },
-    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'WEBP', Body, Year: 2024 },
-    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'JPEG', Body, Year: 2024 }
+    // 7–10) Year hints last
+    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'WebP', Vanbody: Body, Year: 2025 },
+    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'Jpeg', Vanbody: Body, Year: 2025 },
+    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'WebP', Vanbody: Body, Year: 2024 },
+    { idscode, make: makeApi, model: offer.model, Commercial: 1, Type: 'Jpeg', Vanbody: Body, Year: 2024 }
   ];
 
   for (let i = 0; i < attempts.length; i++) {
