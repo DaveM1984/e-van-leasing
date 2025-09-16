@@ -166,65 +166,60 @@ export async function fetchVehicleImagesJson(params: {
   const token = await getImagesApiToken();
   const _debug = process.env.DEBUG_IMAGES === '1';
 
-  // Normalise image type casing to the exact strings expected by the service
-  const typeIn = String(params.Type || 'WebP');
-  const type = /jpe?g/i.test(typeIn) ? 'Jpeg' : /webp/i.test(typeIn) ? 'WebP' : typeIn;
+  // Normalise image type to the lowercase values used in the doc examples
+  const typeIn = String(params.Type || 'webp');
+  const type = /jpe?g/i.test(typeIn) ? 'jpeg' : 'webp';
 
-  // Build POST payload with only defined values
-  const payload: Record<string, unknown> = {
-    UserAuthTokenId: token,
-    Type: type
-  };
-
+  // Build URL with query parameters (server expects GET)
+  const url = new URL(`${IMAGES_BASE}/VehicleImageSearch/Json`);
   const put = (k: string, v: unknown) => {
-    if (typeof v !== 'undefined' && v !== null && v !== '') payload[k] = v;
+    if (typeof v !== 'undefined' && v !== null && v !== '') url.searchParams.set(k, String(v));
   };
 
+  put('UserAuthTokenId', token);
+  put('Type', type);
   put('idscode', params.idscode);
   put('make', params.make);
   put('model', params.model);
-  put('Year', params.Year);
+  if (typeof params.Year !== 'undefined') put('Year', params.Year);
 
   if (typeof params.Commercial !== 'undefined') {
     const v = params.Commercial === true ? 1 : params.Commercial ? 1 : 0;
     put('Commercial', v);
   }
 
-  // Prefer Vanbody for vans, but allow Body as a fallback
-  put('Vanbody', params.Vanbody || params.Body);
+  // Per docs: both are accepted; keep Vanbody preferred for vans
   put('Body', params.Body);
+  put('Vanbody', params.Vanbody || params.Body);
+
   put('Fuel', params.Fuel);
-  put('Doors', params.Doors);
+  if (typeof params.Doors !== 'undefined') put('Doors', params.Doors);
 
-  // The docs allow up to 3 keyword filters
-  put('keyword1', params.keyword1);
-  put('keyword2', params.keyword2);
-  put('keyword3', params.keyword3);
+  // Avoid keywords by default (WAF can 403 these). Only include if supplied.
+  if (params.keyword1) put('keyword1', params.keyword1);
+  if (params.keyword2) put('keyword2', params.keyword2);
+  if (params.keyword3) put('keyword3', params.keyword3);
 
-  const res = await fetch(`${IMAGES_BASE}/VehicleImageSearch/Json`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify(payload)
-  });
+  const res = await fetch(url.toString(), { method: 'GET', headers: { Accept: 'application/json' } });
 
   if (!res.ok) {
     if (_debug) {
       try {
-        const safe = { ...payload, UserAuthTokenId: '[redacted]' };
-        console.warn('[ImagesAPI] HTTP', res.status, 'payload=', JSON.stringify(safe).slice(0, 1000));
+        const safeUrl = url.toString().replace(/(UserAuthTokenId=)[^&]+/, '$1[redacted]');
+        console.warn('[ImagesAPI] HTTP', res.status, 'url=', safeUrl);
       } catch {}
     }
     if (res.status === 401) _cachedToken = null; // force re-auth on next call
     return null;
   }
 
-  const data: VehicleDetailsJson = await res.json();
+  const data: VehicleDetailsJson = await res.json().catch(() => ({} as VehicleDetailsJson));
 
   if (data.ERRORMESSAGE) {
     if (_debug) {
       try {
-        const safe = { ...payload, UserAuthTokenId: '[redacted]' };
-        console.warn('[ImagesAPI] ERRORMESSAGE for payload', JSON.stringify(safe).slice(0, 1000), data.ERRORMESSAGE);
+        const safeUrl = url.toString().replace(/(UserAuthTokenId=)[^&]+/, '$1[redacted]');
+        console.warn('[ImagesAPI] ERRORMESSAGE for', safeUrl, data.ERRORMESSAGE);
         console.warn('[ImagesAPI] RAW JSON', JSON.stringify(data).slice(0, 1000));
       } catch {}
     }
@@ -275,7 +270,7 @@ function cleanDerivativeForKeywords(deriv?: string): string | undefined {
  * Returns an array of URLs in preferred order (hero first).
  */
 export async function getVehicleImagesForOffer(offer: Offer): Promise<string[]> {
-  const makeApi = String(offer.make || '').replace(/-/g, ' ');
+  const makeApi = String(offer.make || '');
   const _debug = process.env.DEBUG_IMAGES === '1';
 
   // Prefer richer hints to the API for tighter matches
@@ -324,9 +319,13 @@ export async function getVehicleImagesForOffer(offer: Offer): Promise<string[]> 
       if (!v) {
         if (_debug) {
           try {
-            const safe = { ...a };
-            if ('idscode' in safe) safe.idscode = (safe.idscode ? '[present]' : undefined) as any;
-            console.info('[ImagesAPI] attempt', i + 1, 'no VEHICLE_DETAILS', JSON.stringify(safe));
+            const preview = new URL(`${IMAGES_BASE}/VehicleImageSearch/Json`);
+            const qp: any = { ...a, UserAuthTokenId: '[redacted]' };
+            Object.keys(qp).forEach((k) => {
+              const v = (qp as any)[k];
+              if (typeof v !== 'undefined' && v !== null && v !== '') preview.searchParams.set(k, String(v));
+            });
+            console.info('[ImagesAPI] attempt', i + 1, 'no VEHICLE_DETAILS', preview.toString());
           } catch {}
         }
         continue;
