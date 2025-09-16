@@ -146,6 +146,7 @@ export async function getImagesApiToken(): Promise<string> {
 /**
  * Calls the JSON image search endpoint.
  * Either provide idscode, or make & model (and optional Year/Commercial/body/vanbody).
+ * NOTE: Per API docs, this endpoint expects a JSON POST body.
  */
 export async function fetchVehicleImagesJson(params: {
   idscode?: string;
@@ -155,62 +156,75 @@ export async function fetchVehicleImagesJson(params: {
   Commercial?: 0 | 1 | boolean;
   Body?: string;
   Vanbody?: string;
+  Fuel?: string;
+  Doors?: number;
   Type?: 'JPEG' | 'WebP' | 'Jpeg' | 'Webp' | string;
   keyword1?: string;
   keyword2?: string;
   keyword3?: string;
 }): Promise<VehicleDetailsJson | null> {
   const token = await getImagesApiToken();
-
-  // Enable debug logging if DEBUG_IMAGES=1
   const _debug = process.env.DEBUG_IMAGES === '1';
 
-  // Build querystring; service expects GET with these params.
-  const qs = new URLSearchParams();
-  qs.set('UserAuthTokenId', token);
-  // Per docs the service expects "Jpeg" or "WebP" casing
+  // Normalise image type casing to the exact strings expected by the service
   const typeIn = String(params.Type || 'WebP');
-  // accept jpg/jpeg and normalize to the casing the API expects
   const type = /jpe?g/i.test(typeIn) ? 'Jpeg' : /webp/i.test(typeIn) ? 'WebP' : typeIn;
-  qs.set('Type', type);
 
-  if (params.idscode) qs.set('idscode', String(params.idscode));
-  if (params.make) qs.set('make', String(params.make));
-  if (params.model) qs.set('model', String(params.model));
-  if (params.Year) qs.set('Year', String(params.Year));
+  // Build POST payload with only defined values
+  const payload: Record<string, unknown> = {
+    UserAuthTokenId: token,
+    Type: type
+  };
+
+  const put = (k: string, v: unknown) => {
+    if (typeof v !== 'undefined' && v !== null && v !== '') payload[k] = v;
+  };
+
+  put('idscode', params.idscode);
+  put('make', params.make);
+  put('model', params.model);
+  put('Year', params.Year);
+
   if (typeof params.Commercial !== 'undefined') {
     const v = params.Commercial === true ? 1 : params.Commercial ? 1 : 0;
-    qs.set('Commercial', String(v));
+    put('Commercial', v);
   }
-  const vanBody = params.Vanbody || params.Body;
-  if (vanBody) {
-    // Use the exact casing that avoids 403s in production: "Vanbody"
-    qs.set('Vanbody', String(vanBody));
-  }
-  // NOTE: We intentionally do not send any `keyword*` params because the
-  // upstream sometimes responds 403 when arbitrary search terms are present.
 
-  const url = `${IMAGES_BASE}/VehicleImageSearch/Json?${qs.toString()}`;
-  const res = await fetch(url, { method: 'GET', headers: { Accept: 'application/json' } });
+  // Prefer Vanbody for vans, but allow Body as a fallback
+  put('Vanbody', params.Vanbody || params.Body);
+  put('Body', params.Body);
+  put('Fuel', params.Fuel);
+  put('Doors', params.Doors);
+
+  // The docs allow up to 3 keyword filters
+  put('keyword1', params.keyword1);
+  put('keyword2', params.keyword2);
+  put('keyword3', params.keyword3);
+
+  const res = await fetch(`${IMAGES_BASE}/VehicleImageSearch/Json`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(payload)
+  });
 
   if (!res.ok) {
     if (_debug) {
       try {
-        const safeUrl = url.replace(/(UserAuthTokenId=)[^&]+/, '$1[redacted]');
-        const bodyText = await res.text();
-        console.warn('[ImagesAPI] HTTP', res.status, safeUrl, 'body=', bodyText.slice(0, 500));
+        const safe = { ...payload, UserAuthTokenId: '[redacted]' };
+        console.warn('[ImagesAPI] HTTP', res.status, 'payload=', JSON.stringify(safe).slice(0, 1000));
       } catch {}
     }
-    if (res.status === 401) _cachedToken = null;
+    if (res.status === 401) _cachedToken = null; // force re-auth on next call
     return null;
   }
 
   const data: VehicleDetailsJson = await res.json();
+
   if (data.ERRORMESSAGE) {
     if (_debug) {
       try {
-        const safeUrl = url.replace(/(UserAuthTokenId=)[^&]+/, '$1[redacted]');
-        console.warn('[ImagesAPI] ERRORMESSAGE for', safeUrl, data.ERRORMESSAGE);
+        const safe = { ...payload, UserAuthTokenId: '[redacted]' };
+        console.warn('[ImagesAPI] ERRORMESSAGE for payload', JSON.stringify(safe).slice(0, 1000), data.ERRORMESSAGE);
         console.warn('[ImagesAPI] RAW JSON', JSON.stringify(data).slice(0, 1000));
       } catch {}
     }
@@ -219,6 +233,9 @@ export async function fetchVehicleImagesJson(params: {
 
   return data;
 }
+
+// Clean an offer derivative into a concise keyword (e.g., "Limited", "Leader", "Trend")
+// Not currently used in API calls (keywords can trigger WAF 403s), but kept for potential tuning.
 function cleanDerivativeForKeywords(deriv?: string): string | undefined {
   if (!deriv) return undefined;
   let s = deriv;
@@ -246,7 +263,7 @@ function cleanDerivativeForKeywords(deriv?: string): string | undefined {
   // Prefer recognisable trim names
   const parts = s.split(' ').filter(Boolean);
   const trims = ['Limited', 'Leader', 'Trend', 'Tekna', 'Premium', 'EcoBlue'];
-  const hit = parts.find((p) => trims.includes(p));
+  const hit = parts.find((p: string) => trims.includes(p));
   if (hit) return hit;
 
   return parts[0] || undefined;
@@ -263,10 +280,8 @@ export async function getVehicleImagesForOffer(offer: Offer): Promise<string[]> 
 
   // Prefer richer hints to the API for tighter matches
   const idscode = (offer as any).idscode as string | undefined;
-  const keyword1Full = cleanDerivativeForKeywords(offer.derivative);
-  const keyword2 = (offer as any).bodyType || undefined;
-  const keyword3 = (offer as any).size || undefined;
   const Body: string | undefined = typeof (offer as any).bodyType === 'string' ? (offer as any).bodyType : undefined;
+  const Fuel: string | undefined = typeof (offer as any).fuel === 'string' ? (offer as any).fuel : undefined;
 
   // Build attempts in order: IDS code, plain make+model, then Vanbody/body/year hints, no keywords
   const attempts: Array<Parameters<typeof fetchVehicleImagesJson>[0]> = [
@@ -279,24 +294,24 @@ export async function getVehicleImagesForOffer(offer: Offer): Promise<string[]> 
       : []),
 
     // 1/2) Plain make+model (these are known to succeed consistently)
-    { idscode, make: makeApi, model: offer.model, Commercial: true, Type: 'WebP' },
-    { idscode, make: makeApi, model: offer.model, Commercial: true, Type: 'Jpeg' },
+    { idscode, make: makeApi, model: offer.model, Commercial: true, Type: 'WebP', Fuel },
+    { idscode, make: makeApi, model: offer.model, Commercial: true, Type: 'Jpeg', Fuel },
 
     // 3/4) Add body hint only (no keywords)
     ...(Body
       ? [
-          { idscode, make: makeApi, model: offer.model, Commercial: true, Type: 'WebP', Vanbody: Body as string },
-          { idscode, make: makeApi, model: offer.model, Commercial: true, Type: 'Jpeg', Vanbody: Body as string }
+          { idscode, make: makeApi, model: offer.model, Commercial: true, Type: 'WebP', Vanbody: Body as string, Fuel },
+          { idscode, make: makeApi, model: offer.model, Commercial: true, Type: 'Jpeg', Vanbody: Body as string, Fuel }
         ]
       : []),
 
     // 5–8) Year hints (kept last)
     ...(Body
       ? [
-          { idscode, make: makeApi, model: offer.model, Commercial: true, Type: 'WebP', Vanbody: Body as string, Year: 2025 },
-          { idscode, make: makeApi, model: offer.model, Commercial: true, Type: 'Jpeg', Vanbody: Body as string, Year: 2025 },
-          { idscode, make: makeApi, model: offer.model, Commercial: true, Type: 'WebP', Vanbody: Body as string, Year: 2024 },
-          { idscode, make: makeApi, model: offer.model, Commercial: true, Type: 'Jpeg', Vanbody: Body as string, Year: 2024 }
+          { idscode, make: makeApi, model: offer.model, Commercial: true, Type: 'WebP', Vanbody: Body as string, Year: 2025, Fuel },
+          { idscode, make: makeApi, model: offer.model, Commercial: true, Type: 'Jpeg', Vanbody: Body as string, Year: 2025, Fuel },
+          { idscode, make: makeApi, model: offer.model, Commercial: true, Type: 'WebP', Vanbody: Body as string, Year: 2024, Fuel },
+          { idscode, make: makeApi, model: offer.model, Commercial: true, Type: 'Jpeg', Vanbody: Body as string, Year: 2024, Fuel }
         ]
       : [])
   ];
