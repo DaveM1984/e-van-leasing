@@ -135,33 +135,6 @@ export default function Page() {
         </p>
       </section>
 
-      {/* BVRLA fair wear & tear */}
-      <section className="mt-10 border rounded p-5">
-        <h2 className="text-xl font-semibold">Fair wear &amp; tear (BVRLA guidance)</h2>
-        <p className="mt-2 text-sm text-slate-700">
-          End‑of‑term inspections generally follow <strong>BVRLA fair wear &amp; tear</strong> principles. In simple terms:
-        </p>
-        <div className="mt-3 grid md:grid-cols-2 gap-4 text-sm">
-          <div>
-            <h3 className="font-semibold">Usually acceptable</h3>
-            <ul className="mt-2 list-disc pl-5 space-y-1 text-slate-700">
-              <li>Light, age‑related surface marks and small chips that don’t expose bare metal.</li>
-              <li>Minor scuffs to wheel trims; tyres meeting legal tread and condition standards.</li>
-              <li>Interior wear consistent with age and mileage; fully functioning equipment.</li>
-            </ul>
-          </div>
-          <div>
-            <h3 className="font-semibold">Usually chargeable</h3>
-            <ul className="mt-2 list-disc pl-5 space-y-1 text-slate-700">
-              <li>Accident damage, deep dents, cracked lights or windscreens, corrosion.</li>
-              <li>Tyres below legal tread, mismatched or damaged wheels beyond refurbishment.</li>
-              <li>Missing keys, documents, or service history; un‑repaired warning lights or faults.</li>
-            </ul>
-          </div>
-        </div>
-        <p className="mt-3 text-xs text-slate-500">Always check your specific funder’s return standards for definitive criteria.</p>
-      </section>
-
       {/* Which is right? */}
       <section className="mt-10 grid md:grid-cols-2 gap-6">
         <div className="border rounded p-5">
