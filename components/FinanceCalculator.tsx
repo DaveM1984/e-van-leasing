@@ -34,7 +34,7 @@ export function FinanceCalculator({ offer }: { offer: Offer }) {
 
     const prefInitial =
       (baseInitial && initials.includes(baseInitial) && baseInitial) ||
-      (initials.includes(6) ? 6
+      (initials.includes(3) ? 3
         : (initials.length
             ? [...initials].sort((a: number, b: number) => a - b)[Math.floor((initials.length - 1) / 2)]
             : initial));
@@ -48,6 +48,7 @@ export function FinanceCalculator({ offer }: { offer: Offer }) {
   const price = priceForSelection(offer.monthlyFromExVat, {
     term, mileage, initial
   });
+  const profile = `${initial}+${Math.max(0, (term ?? 0) - 1)}`;
 
   return (
     <div className="grid gap-3">
@@ -68,6 +69,9 @@ export function FinanceCalculator({ offer }: { offer: Offer }) {
       </Row>
       <div className="mt-2 text-lg">
         Estimated monthly: <strong className="text-primary">£{price.toFixed(2)} ex-VAT</strong>
+      </div>
+      <div className="text-xs text-slate-500">
+        Profile: {profile} ({term} months) · {mileage.toLocaleString()} miles/year
       </div>
       <style jsx>{`.input{@apply border rounded px-3 py-2 w-full;}`}</style>
     </div>

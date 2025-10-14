@@ -109,7 +109,10 @@ export default async function PDP({
                   Illustration based on
                   {offer.baseTermMonths ? ` ${offer.baseTermMonths} months` : ''}
                   {offer.baseMileage ? `, ${offer.baseMileage.toLocaleString()} miles/year` : ''}
-                  {offer.baseInitialMultiple ? `, ${offer.baseInitialMultiple}× initial` : ''}.
+                  {offer.baseInitialMultiple ? `, ${offer.baseInitialMultiple}× initial` : ''}
+                  {typeof offer.baseTermMonths === 'number' && typeof offer.baseInitialMultiple === 'number'
+                    ? ` — payment profile ${offer.baseInitialMultiple}+${Math.max(0, offer.baseTermMonths - 1)} (${offer.baseTermMonths} months)`
+                    : ''}.
                 </p>
               )}
             </div>
