@@ -2,7 +2,13 @@ import data from '@/data/offers.json';
 import { getDb } from '@/lib/db';
 import { filterOffers, sortOffers } from '@/lib/filters';
 
-export type Offer = (typeof data)[number];
+export type Offer = (typeof data)[number] & {
+  cashPriceExVat?: number;
+  balloonExVat?: number;
+  baseTermMonths?: number;
+  baseMileage?: number;
+  baseInitialMultiple?: number;
+};
 
 export async function getOffers({
   filters = {},

@@ -94,6 +94,26 @@ export default async function PDP({
             {offer.make} {offer.model} – {offer.derivative}
           </h1>
           <p className="mt-1 text-primary text-xl font-bold">From £{offer.monthlyFromExVat.toFixed(2)} ex-VAT / month</p>
+          { (offer.cashPriceExVat || offer.balloonExVat || offer.baseTermMonths || offer.baseMileage || offer.baseInitialMultiple) && (
+            <div className="mt-3 text-sm text-slate-700 border rounded p-3">
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {typeof offer.cashPriceExVat === 'number' && (
+                  <li><strong>Cash price (ex‑VAT):</strong> £{offer.cashPriceExVat.toLocaleString()} <span className="text-slate-500">+ VAT</span></li>
+                )}
+                {typeof offer.balloonExVat === 'number' && (
+                  <li><strong>Balloon (ex‑VAT):</strong> £{offer.balloonExVat.toLocaleString()} <span className="text-slate-500">+ VAT</span></li>
+                )}
+              </ul>
+              {(offer.baseTermMonths || offer.baseMileage || offer.baseInitialMultiple) && (
+                <p className="mt-2 text-xs text-slate-500">
+                  Illustration based on
+                  {offer.baseTermMonths ? ` ${offer.baseTermMonths} months` : ''}
+                  {offer.baseMileage ? `, ${offer.baseMileage.toLocaleString()} miles/year` : ''}
+                  {offer.baseInitialMultiple ? `, ${offer.baseInitialMultiple}× initial` : ''}.
+                </p>
+              )}
+            </div>
+          )}
           <p className="text-slate-600 mt-2">{offer.headline}</p>
           <div className="mt-6 border rounded p-4">
             <FinanceCalculator offer={offer} />

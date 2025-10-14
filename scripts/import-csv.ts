@@ -17,8 +17,34 @@ import { MongoClient } from 'mongodb';
 
   for (const r of records) {
     const doc: any = { ...r };
-    doc.monthlyFromExVat = Number(r.monthlyFromExVat);
+
+    // Helpers to coerce currency-like strings: "£28,300 + vat" -> 28300
+    const toNumber = (v: any) => {
+      if (v == null || v === '') return undefined;
+      const s = String(v).replace(/[,£]/g, '').trim();
+      const m = s.match(/^-?\d+(?:\.\d+)?/);
+      return m ? Number(m[0]) : undefined;
+    };
+
+    doc.monthlyFromExVat = toNumber(r.monthlyFromExVat);
+    // Fall back if parsing fails
+    if (typeof doc.monthlyFromExVat !== 'number') doc.monthlyFromExVat = Number(r.monthlyFromExVat);
+
     doc.inStock = String(r.inStock).toLowerCase() === 'true';
+
+    // Optional new fields
+    const cash = toNumber((r as any).cashPriceExVat);
+    if (cash !== undefined) doc.cashPriceExVat = cash;
+    const balloon = toNumber((r as any).balloonExVat);
+    if (balloon !== undefined) doc.balloonExVat = balloon;
+
+    const baseTerm = toNumber((r as any).baseTermMonths);
+    if (baseTerm !== undefined) doc.baseTermMonths = baseTerm;
+    const baseMileage = toNumber((r as any).baseMileage);
+    if (baseMileage !== undefined) doc.baseMileage = baseMileage;
+    const baseInitial = toNumber((r as any).baseInitialMultiple);
+    if (baseInitial !== undefined) doc.baseInitialMultiple = baseInitial;
+
     ['powerKw','payloadKg','loadLengthMm','loadHeightMm','rangeMiles'].forEach((k)=> {
       if (r[k]) doc[k] = Number(r[k]);
       else delete doc[k];

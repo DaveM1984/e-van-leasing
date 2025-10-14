@@ -1,9 +1,49 @@
 'use client';
 import { useFinanceStore } from '@/store/finance';
 import { priceForSelection } from '@/lib/pricing';
+import type { Offer } from '@/lib/repositories/offers';
+import { useEffect } from 'react';
 
-export function FinanceCalculator({ offer }: { offer: any }) {
+export function FinanceCalculator({ offer }: { offer: Offer }) {
   const { term, mileage, initial, setTerm, setMileage, setInitial } = useFinanceStore();
+
+  // Initialise with baseTermMonths/baseMileage/baseInitialMultiple if present
+  useEffect(() => {
+    const terms: number[] = Array.isArray(offer?.terms?.termMonths)
+      ? (offer.terms.termMonths as number[])
+      : [];
+    const mileages: number[] = Array.isArray(offer?.terms?.mileagesPerYear)
+      ? (offer.terms.mileagesPerYear as number[])
+      : [];
+    const initials: number[] = Array.isArray(offer?.terms?.initialPaymentMultiples)
+      ? (offer.terms.initialPaymentMultiples as number[])
+      : [];
+
+    const baseTerm = Number(offer?.baseTermMonths) || undefined;
+    const baseMileage = Number(offer?.baseMileage) || undefined;
+    const baseInitial = Number(offer?.baseInitialMultiple) || undefined;
+
+    const prefTerm =
+      (baseTerm && terms.includes(baseTerm) && baseTerm) ||
+      (terms.includes(60) ? 60 : (terms.length ? Math.max(...terms) : term));
+
+    const prefMileage =
+      (baseMileage && mileages.includes(baseMileage) && baseMileage) ||
+      (mileages.includes(10000) ? 10000
+        : (mileages.length ? Math.min(...mileages) : mileage));
+
+    const prefInitial =
+      (baseInitial && initials.includes(baseInitial) && baseInitial) ||
+      (initials.includes(6) ? 6
+        : (initials.length
+            ? [...initials].sort((a: number, b: number) => a - b)[Math.floor((initials.length - 1) / 2)]
+            : initial));
+
+    setTerm(prefTerm);
+    setMileage(prefMileage);
+    setInitial(prefInitial);
+    // eslint-disable-next-line
+  }, [offer]);
 
   const price = priceForSelection(offer.monthlyFromExVat, {
     term, mileage, initial
