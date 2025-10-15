@@ -15,14 +15,17 @@ export type PriceSelection = {
  * by scaling for term, mileage and balloon. Where a cash price is available, we scale
  * linearly with (cashPrice - balloon)/term so that the base selection reproduces the
  * base monthly exactly. This is an illustrative model (not a quote).
- */
+*/
+
 export function priceForSelection(baseMonthly: number, sel: PriceSelection): number {
   const baseTerm = sel.baseTerm ?? sel.term;
   const baseMileage = sel.baseMileage ?? sel.mileage;
+  const baseInitial = sel.baseInitial ?? sel.initial; // NEW: base initial multiple
   const baseBalloon = sel.baseBalloon ?? (sel.balloon ?? 0);
 
   const term = sel.term || baseTerm;
   const mileage = sel.mileage || baseMileage;
+  const initial = sel.initial || baseInitial;         // NEW: current initial
   const balloon = sel.balloon ?? baseBalloon;
 
   let monthly = baseMonthly;
@@ -30,7 +33,7 @@ export function priceForSelection(baseMonthly: number, sel: PriceSelection): num
   if (sel.cashPriceExVat && sel.cashPriceExVat > 0) {
     const cash = sel.cashPriceExVat;
     const financedBase = Math.max(1, cash - baseBalloon);
-    const k = (baseMonthly * baseTerm) / financedBase; // ensures base selection returns baseMonthly
+    const k = (baseMonthly * baseTerm) / financedBase; // base combo reproduces baseMonthly
     const financedNow = Math.max(1, cash - balloon);
     monthly = k * (financedNow / Math.max(1, term));
   } else {
@@ -38,9 +41,14 @@ export function priceForSelection(baseMonthly: number, sel: PriceSelection): num
     monthly = baseMonthly * (baseTerm / Math.max(1, term));
   }
 
-  // Scale for mileage (simple linear factor)
+  // Mileage scaling
   if (baseMileage > 0 && mileage > 0) {
     monthly = monthly * (mileage / baseMileage);
+  }
+
+  // NEW: Initial multiple scaling (higher initial -> lower monthly), anchored at baseInitial
+  if (baseInitial && initial) {
+    monthly = monthly * (baseInitial / initial);
   }
 
   // Clamp & round
