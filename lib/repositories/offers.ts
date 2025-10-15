@@ -39,6 +39,11 @@ export async function getOffers({
     if (filters.size) query.size = filters.size;
     if (filters.inStock != null) query.inStock = filters.inStock;
     items = await coll.find(query).toArray();
+    // Fallback to static JSON if the database returns no items (e.g., empty collection)
+    if (!items.length) {
+      items = (ids?.length ? (data as Offer[]).filter((o) => ids!.includes(o.id)) : (data as Offer[]));
+      items = filterOffers(items, filters);
+    }
   } else {
     items = (ids?.length ? (data as Offer[]).filter((o) => ids!.includes(o.id)) : (data as Offer[]));
     items = filterOffers(items, filters);
