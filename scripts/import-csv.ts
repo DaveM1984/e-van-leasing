@@ -51,9 +51,9 @@ import { MongoClient } from 'mongodb';
     });
     doc.images = (r.images || '').split('|').filter(Boolean);
     doc.terms = {
-      termMonths: (r['terms.termMonths'] || '').split('|').map(Number),
-      mileagesPerYear: (r['terms.mileagesPerYear'] || '').split('|').map(Number),
-      initialPaymentMultiples: (r['terms.initialPaymentMultiples'] || '').split('|').map(Number)
+      termMonths: (r['terms.termMonths'] || '').split('|').map((x: string) => Number(x)).filter((n: number) => Number.isFinite(n)),
+      mileagesPerYear: (r['terms.mileagesPerYear'] || '').split('|').map((x: string) => Number(x)).filter((n: number) => Number.isFinite(n)),
+      initialPaymentMultiples: (r['terms.initialPaymentMultiples'] || '').split('|').map((x: string) => Number(x)).filter((n: number) => Number.isFinite(n))
     };
     // Remove dotted CSV keys so we don't set both 'terms' and 'terms.*' in the same update
     delete (doc as any)["terms.termMonths"];
@@ -71,7 +71,14 @@ import { MongoClient } from 'mongodb';
       }
     );
     doc.hotOffer = String(r.hotOffer || '').toLowerCase() === 'true';
-    await coll.updateOne({ id: r.id }, { $set: doc }, { upsert: true });
+    // Final safety: drop ANY dotted keys from the update doc to avoid Mongo path conflicts
+    const setDoc: any = Object.fromEntries(Object.entries(doc).filter(([k]) => !k.includes('.')));
+    try {
+      await coll.updateOne({ id: r.id }, { $set: setDoc }, { upsert: true });
+    } catch (e) {
+      console.error('Update failed for id=', r.id, 'keys=', Object.keys(setDoc));
+      throw e;
+    }
   }
   console.log(`Imported ${records.length} offers`);
   await client.close();
