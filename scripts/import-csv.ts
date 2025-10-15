@@ -55,6 +55,10 @@ import { MongoClient } from 'mongodb';
       mileagesPerYear: (r['terms.mileagesPerYear'] || '').split('|').map(Number),
       initialPaymentMultiples: (r['terms.initialPaymentMultiples'] || '').split('|').map(Number)
     };
+    // Remove dotted CSV keys so we don't set both 'terms' and 'terms.*' in the same update
+    delete (doc as any)["terms.termMonths"];
+    delete (doc as any)["terms.mileagesPerYear"];
+    delete (doc as any)["terms.initialPaymentMultiples"];
     doc.hotOffer = String(r.hotOffer || '').toLowerCase() === 'true';
     await coll.updateOne({ id: r.id }, { $set: doc }, { upsert: true });
   }
