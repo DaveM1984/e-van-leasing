@@ -59,6 +59,17 @@ import { MongoClient } from 'mongodb';
     delete (doc as any)["terms.termMonths"];
     delete (doc as any)["terms.mileagesPerYear"];
     delete (doc as any)["terms.initialPaymentMultiples"];
+    // First, remove any previously stored dotted subfields under `terms.*` to avoid Mongo path conflicts
+    await coll.updateOne(
+      { id: r.id },
+      {
+        $unset: {
+          'terms.termMonths': "",
+          'terms.mileagesPerYear': "",
+          'terms.initialPaymentMultiples': ""
+        }
+      }
+    );
     doc.hotOffer = String(r.hotOffer || '').toLowerCase() === 'true';
     await coll.updateOne({ id: r.id }, { $set: doc }, { upsert: true });
   }
