@@ -11,7 +11,7 @@
     "test": "jest",
     "e2e": "playwright test",
     "prepare": "husky install",
-    "import:csv": "tsx scripts/import-csv.ts"
+    "import:csv": "tsx -r dotenv/config scripts/import-csv.ts"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.0",
