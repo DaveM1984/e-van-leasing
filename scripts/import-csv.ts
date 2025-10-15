@@ -17,6 +17,8 @@ import { MongoClient } from 'mongodb';
 
   for (const r of records) {
     const doc: any = { ...r };
+    // Move hotOffer assignment early (before $set doc)
+    doc.hotOffer = String(r.hotOffer || '').toLowerCase() === 'true';
 
     // Helpers to coerce currency-like strings: "£28,300 + vat" -> 28300
     const toNumber = (v: any) => {
@@ -67,40 +69,33 @@ import { MongoClient } from 'mongodb';
     .map((x: string) => Number(x))
     .filter((n: number) => Number.isFinite(n));
 
-    // ---- DO NOT set dotted keys. Build a clean $set doc ----
+    // Build a single clean $set doc — NO dotted keys, includes parent 'terms'
     const setDoc: any = {};
     for (const [k, v] of Object.entries(doc)) {
-    if (k.includes('.')) continue;           // drop 'terms.termMonths' etc. from CSV
-    if (v === undefined) continue;
-    setDoc[k] = v;
+      if (k.includes('.')) continue; // drop any dotted CSV keys like 'terms.termMonths'
+      if (v === undefined) continue;
+      setDoc[k] = v;
     }
     setDoc.terms = {
-    termMonths: termMonthsArr,
-    mileagesPerYear: mileagesArr,
-    initialPaymentMultiples: initialsArr
+      termMonths: termMonthsArr,
+      mileagesPerYear: mileagesArr,
+      initialPaymentMultiples: initialsArr
     };
 
     // Pre-emptively remove any legacy dotted subfields (safe even if none exist)
     await coll.updateOne(
-    { id: r.id },
-    {
-      $unset: {
-        'terms.termMonths': '',
-        'terms.mileagesPerYear': '',
-        'terms.initialPaymentMultiples': ''
+      { id: r.id },
+      {
+        $unset: {
+          'terms.termMonths': '',
+          'terms.mileagesPerYear': '',
+          'terms.initialPaymentMultiples': ''
+        }
       }
-    }
     );
 
-    // Single clean $set — contains ONLY parent 'terms' (no dotted children)
+    // Single, conflict-free upsert
     await coll.updateOne({ id: r.id }, { $set: setDoc }, { upsert: true });
-    doc.hotOffer = String(r.hotOffer || '').toLowerCase() === 'true';
-    try {
-      await coll.updateOne({ id: r.id }, { $set: doc }, { upsert: true });
-    } catch (e) {
-      console.error('Update failed for id=', r.id, 'keys=', Object.keys(doc));
-      throw e;
-    }
   }
   console.log(`Imported ${records.length} offers`);
   await client.close();
