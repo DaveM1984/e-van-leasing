@@ -95,6 +95,11 @@ export default async function PDP({
           <h1 className="text-2xl font-semibold">
             {offer.make} {offer.model} – {offer.derivative}
           </h1>
+          {Number.isFinite(cashPrice) && (
+            <p className="mt-1 text-sm text-slate-700">
+              <strong>Cash price (ex-VAT):</strong> £{cashPrice.toLocaleString()} <span className="text-slate-500">+ VAT</span>
+            </p>
+          )}
           <p className="mt-1 text-primary text-xl font-bold">From £{offer.monthlyFromExVat.toFixed(2)} ex-VAT / month</p>
           { (offer.cashPriceExVat || offer.balloonExVat || offer.baseTermMonths || offer.baseMileage || offer.baseInitialMultiple) && (
             <div className="mt-3 text-sm text-slate-700 border rounded p-3">

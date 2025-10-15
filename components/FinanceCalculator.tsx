@@ -2,10 +2,11 @@
 import { useFinanceStore } from '@/store/finance';
 import { priceForSelection } from '@/lib/pricing';
 import type { Offer } from '@/lib/repositories/offers';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 export function FinanceCalculator({ offer }: { offer: Offer }) {
   const { term, mileage, initial, setTerm, setMileage, setInitial } = useFinanceStore();
+  const [balloon, setBalloon] = useState<number>(Number((offer as any).balloonExVat) || 0);
 
   // Initialise with baseTermMonths/baseMileage/baseInitialMultiple if present
   useEffect(() => {
@@ -22,7 +23,8 @@ export function FinanceCalculator({ offer }: { offer: Offer }) {
     const baseTerm = Number(offer?.baseTermMonths) || undefined;
     const baseMileage = Number(offer?.baseMileage) || undefined;
     const baseInitial = Number(offer?.baseInitialMultiple) || undefined;
-
+    const baseBalloon = Number((offer as any).balloonExVat) || 0;
+    setBalloon(baseBalloon);
     const prefTerm =
       (baseTerm && terms.includes(baseTerm) && baseTerm) ||
       (terms.includes(60) ? 60 : (terms.length ? Math.max(...terms) : term));
@@ -53,12 +55,22 @@ export function FinanceCalculator({ offer }: { offer: Offer }) {
   const baseInitial = Number(offer?.baseInitialMultiple)
   || (offer.terms.initialPaymentMultiples.includes(3) ? 3
       : (offer.terms.initialPaymentMultiples.includes(6) ? 6 : offer.terms.initialPaymentMultiples[0]));
-
-  let price = priceForSelection(offer.monthlyFromExVat, { term, mileage, initial });
+  const baseBalloon = Number((offer as any).balloonExVat) || 0;
+  let price = priceForSelection(offer.monthlyFromExVat, {
+    term,
+    mileage,
+    initial,
+    balloon,
+    cashPriceExVat: Number((offer as any).cashPriceExVat) || 0,
+    baseTerm: baseTerm,
+    baseMileage: baseMileage,
+    baseInitial: baseInitial,
+    baseBalloon: baseBalloon
+  });
 
   // If the selection matches the base assumption, show the exact from-price
-  if (term === baseTerm && mileage === baseMileage && initial === baseInitial) {
-  price = offer.monthlyFromExVat;
+  if (term === baseTerm && mileage === baseMileage && initial === baseInitial && balloon === baseBalloon) {
+    price = offer.monthlyFromExVat;
   }
 
   const profile = `${initial}+${Math.max(0, (term ?? 0) - 1)}`;
@@ -80,11 +92,21 @@ export function FinanceCalculator({ offer }: { offer: Offer }) {
           {offer.terms.initialPaymentMultiples.map((x: number) => <option key={x} value={x}>{x}x monthly</option>)}
         </select>
       </Row>
+      <Row label="Balloon (ex-VAT)">
+        <input
+          type="number"
+          className="input"
+          value={Number.isFinite(balloon) ? balloon : 0}
+          min={0}
+          step={100}
+          onChange={(e)=> setBalloon(Number(e.target.value) || 0)}
+        />
+      </Row>
       <div className="mt-2 text-lg">
         Estimated monthly: <strong className="text-primary">£{price.toFixed(2)} ex-VAT</strong> / month
       </div>
       <div className="text-xs text-slate-500">
-        Profile: {profile} ({term} months) · {mileage.toLocaleString()} miles/year
+        Profile: {profile} ({term} months) · {mileage.toLocaleString()} miles/year · Balloon £{balloon.toLocaleString()}
       </div>
       <style jsx>{`.input{@apply border rounded px-3 py-2 w-full;}`}</style>
     </div>
