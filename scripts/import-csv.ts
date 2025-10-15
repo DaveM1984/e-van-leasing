@@ -51,32 +51,49 @@ import { MongoClient } from 'mongodb';
     });
     doc.images = (r.images || '').split('|').filter(Boolean);
 
-    // Build terms arrays and store as dotted subfields (avoid setting parent 'terms' to prevent path conflicts)
+    // Build terms arrays (coerce to numbers and drop NaNs)
     const termMonthsArr = (r['terms.termMonths'] || '')
-      .split('|')
-      .map((x: string) => Number(x))
-      .filter((n: number) => Number.isFinite(n));
+    .split('|')
+    .map((x: string) => Number(x))
+    .filter((n: number) => Number.isFinite(n));
+
     const mileagesArr = (r['terms.mileagesPerYear'] || '')
-      .split('|')
-      .map((x: string) => Number(x))
-      .filter((n: number) => Number.isFinite(n));
+    .split('|')
+    .map((x: string) => Number(x))
+    .filter((n: number) => Number.isFinite(n));
+
     const initialsArr = (r['terms.initialPaymentMultiples'] || '')
-      .split('|')
-      .map((x: string) => Number(x))
-      .filter((n: number) => Number.isFinite(n));
+    .split('|')
+    .map((x: string) => Number(x))
+    .filter((n: number) => Number.isFinite(n));
 
-    // Ensure we do NOT set a top-level 'terms' object in the same update
-    delete (doc as any).terms;
-    // Set dotted fields instead
-    (doc as any)['terms.termMonths'] = termMonthsArr;
-    (doc as any)['terms.mileagesPerYear'] = mileagesArr;
-    (doc as any)['terms.initialPaymentMultiples'] = initialsArr;
+    // ---- DO NOT set dotted keys. Build a clean $set doc ----
+    const setDoc: any = {};
+    for (const [k, v] of Object.entries(doc)) {
+    if (k.includes('.')) continue;           // drop 'terms.termMonths' etc. from CSV
+    if (v === undefined) continue;
+    setDoc[k] = v;
+    }
+    setDoc.terms = {
+    termMonths: termMonthsArr,
+    mileagesPerYear: mileagesArr,
+    initialPaymentMultiples: initialsArr
+    };
 
-    // Clean up any accidental parent object from older docs in a separate op
+    // Pre-emptively remove any legacy dotted subfields (safe even if none exist)
     await coll.updateOne(
-      { id: r.id },
-      { $unset: { terms: '' } }
+    { id: r.id },
+    {
+      $unset: {
+        'terms.termMonths': '',
+        'terms.mileagesPerYear': '',
+        'terms.initialPaymentMultiples': ''
+      }
+    }
     );
+
+    // Single clean $set — contains ONLY parent 'terms' (no dotted children)
+    await coll.updateOne({ id: r.id }, { $set: setDoc }, { upsert: true });
     doc.hotOffer = String(r.hotOffer || '').toLowerCase() === 'true';
     try {
       await coll.updateOne({ id: r.id }, { $set: doc }, { upsert: true });
