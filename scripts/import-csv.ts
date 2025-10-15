@@ -50,33 +50,38 @@ import { MongoClient } from 'mongodb';
       else delete doc[k];
     });
     doc.images = (r.images || '').split('|').filter(Boolean);
-    doc.terms = {
-      termMonths: (r['terms.termMonths'] || '').split('|').map((x: string) => Number(x)).filter((n: number) => Number.isFinite(n)),
-      mileagesPerYear: (r['terms.mileagesPerYear'] || '').split('|').map((x: string) => Number(x)).filter((n: number) => Number.isFinite(n)),
-      initialPaymentMultiples: (r['terms.initialPaymentMultiples'] || '').split('|').map((x: string) => Number(x)).filter((n: number) => Number.isFinite(n))
-    };
-    // Remove dotted CSV keys so we don't set both 'terms' and 'terms.*' in the same update
-    delete (doc as any)["terms.termMonths"];
-    delete (doc as any)["terms.mileagesPerYear"];
-    delete (doc as any)["terms.initialPaymentMultiples"];
-    // First, remove any previously stored dotted subfields under `terms.*` to avoid Mongo path conflicts
+
+    // Build terms arrays and store as dotted subfields (avoid setting parent 'terms' to prevent path conflicts)
+    const termMonthsArr = (r['terms.termMonths'] || '')
+      .split('|')
+      .map((x: string) => Number(x))
+      .filter((n: number) => Number.isFinite(n));
+    const mileagesArr = (r['terms.mileagesPerYear'] || '')
+      .split('|')
+      .map((x: string) => Number(x))
+      .filter((n: number) => Number.isFinite(n));
+    const initialsArr = (r['terms.initialPaymentMultiples'] || '')
+      .split('|')
+      .map((x: string) => Number(x))
+      .filter((n: number) => Number.isFinite(n));
+
+    // Ensure we do NOT set a top-level 'terms' object in the same update
+    delete (doc as any).terms;
+    // Set dotted fields instead
+    (doc as any)['terms.termMonths'] = termMonthsArr;
+    (doc as any)['terms.mileagesPerYear'] = mileagesArr;
+    (doc as any)['terms.initialPaymentMultiples'] = initialsArr;
+
+    // Clean up any accidental parent object from older docs in a separate op
     await coll.updateOne(
       { id: r.id },
-      {
-        $unset: {
-          'terms.termMonths': "",
-          'terms.mileagesPerYear': "",
-          'terms.initialPaymentMultiples': ""
-        }
-      }
+      { $unset: { terms: '' } }
     );
     doc.hotOffer = String(r.hotOffer || '').toLowerCase() === 'true';
-    // Final safety: drop ANY dotted keys from the update doc to avoid Mongo path conflicts
-    const setDoc: any = Object.fromEntries(Object.entries(doc).filter(([k]) => !k.includes('.')));
     try {
-      await coll.updateOne({ id: r.id }, { $set: setDoc }, { upsert: true });
+      await coll.updateOne({ id: r.id }, { $set: doc }, { upsert: true });
     } catch (e) {
-      console.error('Update failed for id=', r.id, 'keys=', Object.keys(setDoc));
+      console.error('Update failed for id=', r.id, 'keys=', Object.keys(doc));
       throw e;
     }
   }
