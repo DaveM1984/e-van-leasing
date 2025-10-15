@@ -17,6 +17,8 @@ export default async function PDP({
 
   const remoteImages = await getVehicleImagesForOffer(offer);
   const heroImage = remoteImages[0] || offer.images[0] || '/brand/e-van-leasing-logo.png';
+  const cashPrice = Number((offer as any).cashPriceExVat);
+  const balloon   = Number((offer as any).balloonExVat);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
@@ -97,13 +99,13 @@ export default async function PDP({
           { (offer.cashPriceExVat || offer.balloonExVat || offer.baseTermMonths || offer.baseMileage || offer.baseInitialMultiple) && (
             <div className="mt-3 text-sm text-slate-700 border rounded p-3">
               <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {typeof offer.cashPriceExVat === 'number' && (
-                  <li><strong>Cash price (ex‑VAT):</strong> £{offer.cashPriceExVat.toLocaleString()} <span className="text-slate-500">+ VAT</span></li>
-                )}
-                {typeof offer.balloonExVat === 'number' && (
-                  <li><strong>Balloon (ex‑VAT):</strong> £{offer.balloonExVat.toLocaleString()} <span className="text-slate-500">+ VAT</span></li>
-                )}
-              </ul>
+              {Number.isFinite(cashPrice) && (
+                <li><strong>Cash price (ex-VAT):</strong> £{cashPrice.toLocaleString()} <span className="text-slate-500">+ VAT</span></li>
+              )}
+              {Number.isFinite(balloon) && (
+                <li><strong>Balloon (ex-VAT):</strong> £{balloon.toLocaleString()} <span className="text-slate-500">+ VAT</span></li>
+              )}
+            </ul>
               {(offer.baseTermMonths || offer.baseMileage || offer.baseInitialMultiple) && (
                 <p className="mt-2 text-xs text-slate-500">
                   Illustration based on

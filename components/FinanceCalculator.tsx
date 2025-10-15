@@ -45,9 +45,22 @@ export function FinanceCalculator({ offer }: { offer: Offer }) {
     // eslint-disable-next-line
   }, [offer]);
 
-  const price = priceForSelection(offer.monthlyFromExVat, {
-    term, mileage, initial
-  });
+  // Compute price; anchor baseline to offer base values so base combo equals from-price
+  const baseTerm = Number(offer?.baseTermMonths)
+  || (offer.terms.termMonths.includes(60) ? 60 : Math.max(...offer.terms.termMonths));
+  const baseMileage = Number(offer?.baseMileage)
+  || (offer.terms.mileagesPerYear.includes(10000) ? 10000 : Math.min(...offer.terms.mileagesPerYear));
+  const baseInitial = Number(offer?.baseInitialMultiple)
+  || (offer.terms.initialPaymentMultiples.includes(3) ? 3
+      : (offer.terms.initialPaymentMultiples.includes(6) ? 6 : offer.terms.initialPaymentMultiples[0]));
+
+  let price = priceForSelection(offer.monthlyFromExVat, { term, mileage, initial });
+
+  // If the selection matches the base assumption, show the exact from-price
+  if (term === baseTerm && mileage === baseMileage && initial === baseInitial) {
+  price = offer.monthlyFromExVat;
+  }
+
   const profile = `${initial}+${Math.max(0, (term ?? 0) - 1)}`;
 
   return (
@@ -68,7 +81,7 @@ export function FinanceCalculator({ offer }: { offer: Offer }) {
         </select>
       </Row>
       <div className="mt-2 text-lg">
-        Estimated monthly: <strong className="text-primary">£{price.toFixed(2)} ex-VAT</strong>
+        Estimated monthly: <strong className="text-primary">£{price.toFixed(2)} ex-VAT</strong> / month
       </div>
       <div className="text-xs text-slate-500">
         Profile: {profile} ({term} months) · {mileage.toLocaleString()} miles/year
