@@ -147,10 +147,9 @@ export async function fetchAutotraderStock(
 
   const url = new URL(`${BASE_URL}/stock`);
   url.searchParams.set('advertiserId', advertiserId);
-  // Include valuations/finance/media if enabled on your account – names align with docs.
-  url.searchParams.set('valuations', 'true');
-  url.searchParams.set('financeOffers', 'true');
-  // page & pageSize are available in the API; tweak as needed.
+  // Keep it minimal for now: just advertiser + pagination.
+  // Extra features like valuations and finance offers can be enabled later
+  // once they are permitted on the integration.
   url.searchParams.set('page', '1');
   url.searchParams.set('pageSize', '100');
 
