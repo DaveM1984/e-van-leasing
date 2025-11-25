@@ -1,10 +1,12 @@
 // lib/autotrader.ts
 
 const BASE_URL =
-  process.env.AUTOTRADER_BASE_URL || 'https://api-sandbox.autotrader.co.uk';
-const KEY = process.env.AUTOTRADER_KEY;
-const SECRET = process.env.AUTOTRADER_SECRET;
-const ADVERTISER_ID = process.env.AUTOTRADER_ADVERTISER_ID;
+  (process.env.AUTOTRADER_BASE_URL || 'https://api-sandbox.autotrader.co.uk').trim();
+const KEY = process.env.AUTOTRADER_KEY ? process.env.AUTOTRADER_KEY.trim() : undefined;
+const SECRET = process.env.AUTOTRADER_SECRET ? process.env.AUTOTRADER_SECRET.trim() : undefined;
+const ADVERTISER_ID = process.env.AUTOTRADER_ADVERTISER_ID
+  ? process.env.AUTOTRADER_ADVERTISER_ID.trim()
+  : undefined;
 
 // --- Types based on Auto Trader Stock API docs ---
 export interface AutotraderStockItem {
