@@ -11,7 +11,8 @@
     "test": "jest",
     "e2e": "playwright test",
     "prepare": "husky install",
-    "import:csv": "tsx -r dotenv/config scripts/import-csv.ts"
+    "import:csv": "tsx -r dotenv/config scripts/import-csv.ts",
+    "autotrader:sync": "tsx -r dotenv/config scripts/sync-autotrader.ts"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.0",
