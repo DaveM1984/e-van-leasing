@@ -86,21 +86,16 @@ async function getAccessToken(): Promise<string> {
     return cachedToken.token;
   }
 
-  // Auto Trader uses OAuth2 client_credentials; auth endpoint:
-  //   POST {BASE_URL}/authenticate
-  // with grant_type=client_credentials and appropriate scopes.
+  // Auto Trader expects x-www-form-urlencoded body with key and secret only.
   const body = new URLSearchParams({
-    grant_type: 'client_credentials',
-    scope: 'read:stock read:images',
+    key: KEY,
+    secret: SECRET,
   });
 
   const res = await fetch(`${BASE_URL}/authenticate`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
-      // Depending on your account, this may need to be Basic KEY:SECRET as per docs.
-      Authorization:
-        'Basic ' + Buffer.from(`${KEY}:${SECRET}`).toString('base64'),
     },
     body: body.toString(),
   });
@@ -114,12 +109,22 @@ async function getAccessToken(): Promise<string> {
   const json = (await res.json()) as {
     access_token: string;
     expires_in?: number;
+    expires_at?: string;
   };
 
-  const expiresIn = json.expires_in ?? 300; // seconds
+  let expiresAt = now + 15 * 60 * 1000; // default 15 minutes
+  if (json.expires_at) {
+    const ts = Date.parse(json.expires_at);
+    if (!Number.isNaN(ts)) {
+      expiresAt = ts;
+    }
+  } else if (json.expires_in) {
+    expiresAt = now + json.expires_in * 1000;
+  }
+
   cachedToken = {
     token: json.access_token,
-    expiresAt: now + expiresIn * 1000,
+    expiresAt,
   };
   return json.access_token;
 }
