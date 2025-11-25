@@ -1,5 +1,4 @@
 // lib/autotrader.ts
-import 'server-only';
 
 const BASE_URL =
   process.env.AUTOTRADER_BASE_URL || 'https://api-sandbox.autotrader.co.uk';
